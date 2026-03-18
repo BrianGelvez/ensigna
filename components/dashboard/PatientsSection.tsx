@@ -1,0 +1,299 @@
+'use client';
+
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import {
+  Users,
+  Search,
+  Loader2,
+  AlertCircle,
+  UserPlus,
+  ChevronRight,
+  Mail,
+  Phone,
+  FileText,
+  Calendar,
+} from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import CreatePatientModal from './CreatePatientModal';
+
+const DEBOUNCE_MS = 300;
+
+export interface PatientListItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dni?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  createdAt: string;
+  isActive?: boolean;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+type ActiveFilter = 'active' | 'inactive' | 'all';
+
+export default function PatientsSection() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter>('active');
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<{
+    items: PatientListItem[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const canCreate = user?.role === 'OWNER' || user?.role === 'ADMIN';
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, activeFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    (async () => {
+      try {
+        const res = await apiClient.getPatients({
+          page,
+          limit: 20,
+          q: debouncedQuery || undefined,
+          activeFilter,
+        });
+        if (cancelled) return;
+        setData(res);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(
+            (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+              'Error al cargar pacientes.',
+          );
+          setData(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [page, debouncedQuery, activeFilter]);
+
+  const handleRowClick = (id: string) => {
+    router.push(`/dashboard/patients/${id}`);
+  };
+
+  const handleCreated = () => {
+    setModalOpen(false);
+    setPage(1);
+    setData(null);
+    setLoading(true);
+    apiClient
+      .getPatients({ page: 1, limit: 20 })
+      .then(setData)
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="space-y-5"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-indigo-500/20">
+            <Users className="w-5 h-5 text-white" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold text-gray-900">Pacientes</h2>
+            <p className="text-sm text-gray-500">
+              Base de pacientes de la clínica
+            </p>
+          </div>
+        </div>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 active:bg-indigo-800 shadow-lg shadow-indigo-500/20"
+          >
+            <UserPlus className="w-4 h-4" />
+            Nuevo paciente
+          </button>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-gray-100 space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {(['active', 'inactive', 'all'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setActiveFilter(filter)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeFilter === filter
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {filter === 'active' ? 'Activos' : filter === 'inactive' ? 'Inactivos' : 'Todos'}
+              </button>
+            ))}
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por nombre, DNI o email..."
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="mx-4 sm:mx-5 mt-4 flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-100">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
+        <div className="min-h-[280px]">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
+              <p className="text-sm text-gray-500">Cargando pacientes...</p>
+            </div>
+          ) : !data?.items?.length ? (
+            <div className="text-center py-16 px-4">
+              <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-700 font-medium">
+                {debouncedQuery ? 'No hay resultados para tu búsqueda' : 'Aún no hay pacientes'}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {debouncedQuery ? 'Probá con otro término.' : 'Creá el primero desde "Nuevo paciente".'}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {data.items.map((patient) => {
+                const inactive = patient.isActive === false;
+                return (
+                  <motion.button
+                    key={patient.id}
+                    type="button"
+                    onClick={() => handleRowClick(patient.id)}
+                    className={`w-full text-left px-4 sm:px-5 py-4 flex flex-wrap items-center gap-3 sm:gap-4 transition-colors ${
+                      inactive
+                        ? 'opacity-75 bg-gray-50/50 hover:bg-gray-50'
+                        : 'hover:bg-gray-50 active:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium truncate ${inactive ? 'text-gray-600' : 'text-gray-900'}`}>
+                        {patient.lastName}, {patient.firstName}
+                      </p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
+                      {patient.dni && (
+                        <span className="inline-flex items-center gap-1">
+                          <FileText className="w-3.5 h-3.5" />
+                          DNI {patient.dni}
+                        </span>
+                      )}
+                      {patient.phone && (
+                        <span className="inline-flex items-center gap-1 truncate">
+                          <Phone className="w-3.5 h-3.5 shrink-0" />
+                          {patient.phone}
+                        </span>
+                      )}
+                      {patient.email && (
+                        <span className="inline-flex items-center gap-1 truncate">
+                          <Mail className="w-3.5 h-3.5 shrink-0" />
+                          {patient.email}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {inactive && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-200 text-gray-600">
+                          Inactivo
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400 hidden sm:inline">
+                        <Calendar className="w-3.5 h-3.5 inline mr-0.5" />
+                        {formatDate(patient.createdAt)}
+                      </span>
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </div>
+                  </motion.button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {data && data.totalPages > 1 && (
+          <div className="px-4 sm:px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
+            <span>
+              {data.items.length} de {data.total} paciente{data.total !== 1 ? 's' : ''}
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 disabled:opacity-50 hover:bg-gray-50"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+                disabled={page >= data.totalPages}
+                className="px-3 py-1.5 rounded-lg border border-gray-200 disabled:opacity-50 hover:bg-gray-50"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <CreatePatientModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSuccess={handleCreated}
+      />
+    </motion.div>
+  );
+}

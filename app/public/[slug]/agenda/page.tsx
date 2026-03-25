@@ -109,6 +109,7 @@ export default function PublicAgendaPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [appointmentReason, setAppointmentReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showAppointmentSuccessModal, setShowAppointmentSuccessModal] = useState(false);
   const [lastAppointmentInfo, setLastAppointmentInfo] = useState<{
@@ -219,14 +220,17 @@ export default function PublicAgendaPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await apiClient.requestPublicAppointment({
+      const body: Parameters<typeof apiClient.requestPublicAppointment>[0] = {
         clinicSlug,
         professionalId: selectedSlot.professionalId!,
         patientId,
         date: selectedSlot.date,
         startTime: selectedSlot.startTime,
         endTime: selectedSlot.endTime,
-      });
+      };
+      const trimmedReason = appointmentReason.trim().slice(0, 150);
+      if (trimmedReason) body.reason = trimmedReason;
+      await apiClient.requestPublicAppointment(body);
       
       // Guardar información del turno antes de cerrar el modal
       const professional = clinicInfo?.professionals.find(
@@ -242,6 +246,7 @@ export default function PublicAgendaPage() {
       });
       
       setSelectedSlot(null);
+      setAppointmentReason('');
       setShowAppointmentSuccessModal(true);
       setTimeout(() => {
         fetchSlots(); // Refrescar slots después de un momento
@@ -585,12 +590,33 @@ export default function PublicAgendaPage() {
                     {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
                   </p>
                 </div>
+
+                {/* Motivo de consulta (opcional) */}
+                <div className="rounded-xl p-4 border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">
+                    Motivo de consulta (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={appointmentReason}
+                    onChange={(e) => setAppointmentReason(e.target.value.slice(0, 150))}
+                    maxLength={150}
+                    placeholder="Ej: control, fiebre, chequeo general..."
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1 text-right">
+                    {appointmentReason.length}/150
+                  </p>
+                </div>
               </div>
 
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setSelectedSlot(null)}
+                  onClick={() => {
+                    setSelectedSlot(null);
+                    setAppointmentReason('');
+                  }}
                   disabled={submitting}
                   className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 disabled:opacity-50 transition-colors"
                 >

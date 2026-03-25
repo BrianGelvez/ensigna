@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
-import ChatbotWidget from '@/components/ChatbotWidget';
+import ConditionalChatbot from '@/components/ConditionalChatbot'; // Importa el nuevo componente
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -22,7 +22,8 @@ export default function RootLayout({
       <body className={`${inter.className} w-full overflow-x-hidden`}>
         <AuthProvider>
           {children}
-          <ChatbotWidget />
+          {/* El componente ahora decide internamente si mostrarse o no */}
+          <ConditionalChatbot />
         </AuthProvider>
       </body>
     </html>

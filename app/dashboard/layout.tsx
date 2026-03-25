@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 
 function DashboardRouteLayoutInner({
@@ -11,26 +11,24 @@ function DashboardRouteLayoutInner({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   const isPatientDetail = pathname?.match(/^\/dashboard\/patients\/[^/]+$/);
-  const activeSection = isPatientDetail
-    ? 'patients'
-    : (searchParams?.get('section') || 'overview');
 
-  const handleSectionChange = (section: string) => {
-    if (section === 'patients' && isPatientDetail) {
-      router.push('/dashboard?section=patients');
-    } else {
-      router.push(`/dashboard?section=${section}`);
-    }
+  const pathSectionMap: Record<string, string> = {
+    '/dashboard/agenda': 'schedule',
+    '/dashboard/patients': 'patients',
+    '/dashboard/finanzas': 'finanzas',
+    '/dashboard/reports': 'reports',
   };
 
+  const activeSection = isPatientDetail
+    ? 'patients'
+    : pathSectionMap[pathname || ''] ??
+      searchParams?.get('section') ??
+      'overview';
+
   return (
-    <DashboardLayout
-      activeSection={activeSection}
-      onSectionChange={handleSectionChange}
-    >
+    <DashboardLayout activeSection={activeSection}>
       {children}
     </DashboardLayout>
   );

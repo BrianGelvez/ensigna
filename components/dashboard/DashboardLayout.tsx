@@ -1,10 +1,9 @@
-'use client';
+"use client";
 
-import { ReactNode, useState, useEffect, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ReactNode, useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Building2,
@@ -20,10 +19,15 @@ import {
   Bell,
   Search,
   Sparkles,
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { apiClient } from '@/lib/api';
-import { NotificationDropdown, type NotificationItem } from './NotificationDropdown';
+  BarChart3,
+  Wallet,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiClient } from "@/lib/api";
+import {
+  NotificationDropdown,
+  type NotificationItem,
+} from "./NotificationDropdown";
 
 interface NavItem {
   id: string;
@@ -37,75 +41,86 @@ interface NavItem {
 interface DashboardLayoutProps {
   children: ReactNode;
   activeSection?: string;
-  onSectionChange?: (section: string) => void;
 }
 
 const navItems: NavItem[] = [
   {
-    id: 'overview',
-    label: 'Resumen',
+    id: "overview",
+    label: "Resumen",
     icon: <LayoutDashboard className="w-5 h-5" />,
-    href: '/dashboard',
-    roles: ['OWNER', 'ADMIN', 'STAFF'],
+    href: "/dashboard",
+    roles: ["OWNER", "ADMIN", "STAFF"],
   },
   {
-    id: 'clinic',
-    label: 'Mi Clínica',
+    id: "clinic",
+    label: "Mi Clínica",
     icon: <Building2 className="w-5 h-5" />,
-    href: '/dashboard?section=clinic',
-    roles: ['OWNER', 'ADMIN'],
+    href: "/dashboard?section=clinic",
+    roles: ["OWNER", "ADMIN"],
   },
   {
-    id: 'team',
-    label: 'Equipo',
+    id: "team",
+    label: "Equipo",
     icon: <Users className="w-5 h-5" />,
-    href: '/dashboard?section=team',
-    roles: ['OWNER', 'ADMIN'],
+    href: "/dashboard?section=team",
+    roles: ["OWNER", "ADMIN"],
   },
   {
-    id: 'invite',
-    label: 'Invitaciones',
+    id: "invite",
+    label: "Invitaciones",
     icon: <UserPlus className="w-5 h-5" />,
-    href: '/dashboard?section=invite',
-    roles: ['OWNER', 'ADMIN'],
+    href: "/dashboard?section=invite",
+    roles: ["OWNER", "ADMIN"],
   },
   {
-    id: 'availability',
-    label: 'Disponibilidad',
+    id: "availability",
+    label: "Disponibilidad",
     icon: <Clock className="w-5 h-5" />,
-    href: '/dashboard?section=availability',
-    roles: ['OWNER', 'ADMIN', 'STAFF'],
+    href: "/dashboard?section=availability",
+    roles: ["OWNER", "ADMIN", "STAFF"],
   },
   {
-    id: 'schedule',
-    label: 'Agenda',
+    id: "schedule",
+    label: "Agenda",
     icon: <Calendar className="w-5 h-5" />,
-    href: '/dashboard?section=schedule',
-    roles: ['OWNER', 'ADMIN', 'STAFF'],
+    href: "/dashboard/agenda",
+    roles: ["OWNER", "ADMIN", "STAFF"],
   },
   {
-    id: 'patients',
-    label: 'Pacientes',
+    id: "patients",
+    label: "Pacientes",
     icon: <Users className="w-5 h-5" />,
-    href: '/dashboard?section=patients',
-    roles: ['OWNER', 'ADMIN', 'STAFF'],
+    href: "/dashboard/patients",
+    roles: ["OWNER", "ADMIN", "STAFF"],
   },
   {
-    id: 'settings',
-    label: 'Configuración',
+    id: "finanzas",
+    label: "Finanzas",
+    icon: <Wallet className="w-5 h-5" />,
+    href: "/dashboard/finanzas",
+    roles: ["OWNER", "ADMIN", "STAFF"],
+  },
+  {
+    id: "reports",
+    label: "Reportes",
+    icon: <BarChart3 className="w-5 h-5" />,
+    href: "/dashboard/reports",
+    roles: ["OWNER", "ADMIN", "STAFF"],
+  },
+  {
+    id: "settings",
+    label: "Configuración",
     icon: <Settings className="w-5 h-5" />,
-    href: '/dashboard?section=settings',
-    roles: ['OWNER', 'ADMIN', 'STAFF'],
+    href: "/dashboard?section=settings",
+    roles: ["OWNER", "ADMIN", "STAFF"],
   },
 ];
 
 export default function DashboardLayout({
   children,
-  activeSection = 'overview',
-  onSectionChange,
+  activeSection = "overview",
 }: DashboardLayoutProps) {
   const { user, clinic, logout } = useAuth();
-  const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -130,21 +145,26 @@ export default function DashboardLayout({
   const markNotificationAsRead = useCallback(async (id: string) => {
     await apiClient.markNotificationAsRead(id);
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
+      prev.map((n) =>
+        n.id === id ? { ...n, readAt: new Date().toISOString() } : n,
+      ),
     );
   }, []);
 
   const markAllNotificationsAsRead = useCallback(async () => {
     await apiClient.markAllNotificationsAsRead();
     setNotifications((prev) =>
-      prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() }))
+      prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })),
     );
     setNotificationUnreadCount(0);
   }, []);
 
   // Initial unread count for badge
   useEffect(() => {
-    apiClient.getNotifications().then((res) => setNotificationUnreadCount(res.unreadCount)).catch(() => {});
+    apiClient
+      .getNotifications()
+      .then((res) => setNotificationUnreadCount(res.unreadCount))
+      .catch(() => {});
   }, []);
 
   // Update time every minute
@@ -155,38 +175,33 @@ export default function DashboardLayout({
 
   // Filter nav items by user role
   const filteredNavItems = navItems.filter(
-    (item) => user?.role && item.roles.includes(user.role)
+    (item) => user?.role && item.roles.includes(user.role),
   );
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'OWNER':
-        return 'from-red-500 to-rose-600';
-      case 'ADMIN':
-        return 'from-amber-500 to-orange-600';
-      case 'STAFF':
-        return 'from-emerald-500 to-teal-600';
+      case "OWNER":
+        return "from-red-500 to-rose-600";
+      case "ADMIN":
+        return "from-amber-500 to-orange-600";
+      case "STAFF":
+        return "from-emerald-500 to-teal-600";
       default:
-        return 'from-gray-500 to-gray-600';
+        return "from-gray-500 to-gray-600";
     }
   };
 
   const getRoleName = (role: string) => {
     switch (role) {
-      case 'OWNER':
-        return 'Propietario';
-      case 'ADMIN':
-        return 'Administrador';
-      case 'STAFF':
-        return 'Profesional';
+      case "OWNER":
+        return "Propietario";
+      case "ADMIN":
+        return "Administrador";
+      case "STAFF":
+        return "Profesional";
       default:
         return role;
     }
-  };
-
-  const handleNavClick = (itemId: string) => {
-    onSectionChange?.(itemId);
-    setIsMobileMenuOpen(false);
   };
 
   return (
@@ -194,7 +209,7 @@ export default function DashboardLayout({
       {/* Desktop Sidebar */}
       <aside
         className={`fixed left-0 top-0 z-40 h-screen hidden lg:flex flex-col bg-white border-r border-gray-200/80 shadow-sm transition-all duration-300 ${
-          isSidebarCollapsed ? 'w-20' : 'w-72'
+          isSidebarCollapsed ? "w-20" : "w-72"
         }`}
       >
         {/* Logo & Toggle */}
@@ -225,22 +240,22 @@ export default function DashboardLayout({
           >
             <ChevronRight
               className={`w-5 h-5 transition-transform duration-300 ${
-                isSidebarCollapsed ? '' : 'rotate-180'
+                isSidebarCollapsed ? "" : "rotate-180"
               }`}
             />
           </button>
         </div>
 
         {/* User Profile Card */}
-        <div className={`p-4 ${isSidebarCollapsed ? 'px-2' : ''}`}>
+        <div className={`p-4 ${isSidebarCollapsed ? "px-2" : ""}`}>
           <div
             className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${getRoleColor(
-              user?.role || ''
-            )} p-4 text-white ${isSidebarCollapsed ? 'p-3' : ''}`}
+              user?.role || "",
+            )} p-4 text-white ${isSidebarCollapsed ? "p-3" : ""}`}
           >
             <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
-            
+
             <div className="relative">
               {isSidebarCollapsed ? (
                 <div className="w-10 h-10 mx-auto rounded-xl bg-white/20 flex items-center justify-center text-lg font-bold">
@@ -264,7 +279,7 @@ export default function DashboardLayout({
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4" />
                     <span className="text-sm font-medium">
-                      {getRoleName(user?.role || '')}
+                      {getRoleName(user?.role || "")}
                     </span>
                   </div>
                 </>
@@ -280,23 +295,30 @@ export default function DashboardLayout({
               const isActive = activeSection === item.id;
               return (
                 <li key={item.id}>
-                  <button
-                    onClick={() => handleNavClick(item.id)}
+                  <Link
+                    href={item.href}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
                       isActive
-                        ? 'bg-red-50 text-red-600'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    } ${isSidebarCollapsed ? 'justify-center' : ''}`}
+                        ? "bg-red-50 text-red-600"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    } ${isSidebarCollapsed ? "justify-center" : ""}`}
                   >
                     {isActive && (
                       <motion.div
                         layoutId="activeNav"
-                        className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-red-600 rounded-r-full"
+                        className="absolute left-0 inset-y-2 w-1 bg-red-600 rounded-r-full"
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30,
+                        }}
                       />
                     )}
                     <span
                       className={`flex-shrink-0 ${
-                        isActive ? 'text-red-600' : 'text-gray-400 group-hover:text-gray-600'
+                        isActive
+                          ? "text-red-600"
+                          : "text-gray-400 group-hover:text-gray-600"
                       }`}
                     >
                       {item.icon}
@@ -318,7 +340,7 @@ export default function DashboardLayout({
                         {item.badge}
                       </span>
                     )}
-                  </button>
+                  </Link>
                 </li>
               );
             })}
@@ -332,17 +354,21 @@ export default function DashboardLayout({
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
                 Clínica
               </p>
-              <p className="font-semibold text-gray-900 truncate">{clinic.name}</p>
+              <p className="font-semibold text-gray-900 truncate">
+                {clinic.name}
+              </p>
             </div>
           )}
           <button
             onClick={logout}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors ${
-              isSidebarCollapsed ? 'justify-center' : ''
+              isSidebarCollapsed ? "justify-center" : ""
             }`}
           >
             <LogOut className="w-5 h-5" />
-            {!isSidebarCollapsed && <span className="font-medium">Cerrar sesión</span>}
+            {!isSidebarCollapsed && (
+              <span className="font-medium">Cerrar sesión</span>
+            )}
           </button>
         </div>
       </aside>
@@ -356,10 +382,15 @@ export default function DashboardLayout({
           >
             <Menu className="w-6 h-6" />
           </button>
-          
+
           <Link href="/" className="flex items-center gap-2">
             <div className="relative w-8 h-8">
-              <Image src="/ensigna.png" alt="ENSIGNA" fill className="object-contain" />
+              <Image
+                src="/ensigna.png"
+                alt="ENSIGNA"
+                fill
+                className="object-contain"
+              />
             </div>
             <span className="text-lg font-bold text-gray-900">ENSIGNA</span>
           </Link>
@@ -373,13 +404,15 @@ export default function DashboardLayout({
               <Bell className="w-5 h-5" />
               {notificationUnreadCount > 0 && (
                 <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center">
-                  {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                  {notificationUnreadCount > 99
+                    ? "99+"
+                    : notificationUnreadCount}
                 </span>
               )}
             </button>
             <div
               className={`w-8 h-8 rounded-lg bg-gradient-to-br ${getRoleColor(
-                user?.role || ''
+                user?.role || "",
               )} flex items-center justify-center text-white text-sm font-bold`}
             >
               {user?.name?.[0]}
@@ -400,18 +433,25 @@ export default function DashboardLayout({
               className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ x: '-100%' }}
+              initial={{ x: "-100%" }}
               animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="lg:hidden fixed left-0 top-0 bottom-0 z-50 w-80 bg-white shadow-2xl"
             >
               <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100">
                 <Link href="/" className="flex items-center gap-3">
                   <div className="relative w-10 h-10">
-                    <Image src="/ensigna.png" alt="ENSIGNA" fill className="object-contain" />
+                    <Image
+                      src="/ensigna.png"
+                      alt="ENSIGNA"
+                      fill
+                      className="object-contain"
+                    />
                   </div>
-                  <span className="text-xl font-bold text-gray-900">ENSIGNA</span>
+                  <span className="text-xl font-bold text-gray-900">
+                    ENSIGNA
+                  </span>
                 </Link>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -425,7 +465,7 @@ export default function DashboardLayout({
               <div className="p-4">
                 <div
                   className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${getRoleColor(
-                    user?.role || ''
+                    user?.role || "",
                   )} p-4 text-white`}
                 >
                   <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -439,7 +479,7 @@ export default function DashboardLayout({
                       </p>
                       <div className="flex items-center gap-1.5 text-sm text-white/80">
                         <Sparkles className="w-3.5 h-3.5" />
-                        <span>{getRoleName(user?.role || '')}</span>
+                        <span>{getRoleName(user?.role || "")}</span>
                       </div>
                     </div>
                   </div>
@@ -453,22 +493,25 @@ export default function DashboardLayout({
                     const isActive = activeSection === item.id;
                     return (
                       <li key={item.id}>
-                        <button
-                          onClick={() => handleNavClick(item.id)}
+                        <Link
+                          href={item.href}
+                          onClick={() => setIsMobileMenuOpen(false)}
                           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                             isActive
-                              ? 'bg-red-50 text-red-600'
-                              : 'text-gray-600 hover:bg-gray-50'
+                              ? "bg-red-50 text-red-600"
+                              : "text-gray-600 hover:bg-gray-50"
                           }`}
                         >
                           {item.icon}
-                          <span className="font-medium flex-1 text-left">{item.label}</span>
+                          <span className="font-medium flex-1 text-left">
+                            {item.label}
+                          </span>
                           {item.badge && (
                             <span className="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-600 rounded-full">
                               {item.badge}
                             </span>
                           )}
-                        </button>
+                        </Link>
                       </li>
                     );
                   })}
@@ -504,28 +547,28 @@ export default function DashboardLayout({
           {filteredNavItems.slice(0, 5).map((item) => {
             const isActive = activeSection === item.id;
             return (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => handleNavClick(item.id)}
+                href={item.href}
                 className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all relative"
               >
                 {isActive && (
                   <motion.div
                     layoutId="activeBottomNav"
                     className="absolute inset-0 bg-red-50 rounded-xl"
-                    transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                    transition={{ type: "spring", damping: 30, stiffness: 300 }}
                   />
                 )}
                 <span
                   className={`relative z-10 ${
-                    isActive ? 'text-red-600' : 'text-gray-400'
+                    isActive ? "text-red-600" : "text-gray-400"
                   }`}
                 >
                   {item.icon}
                 </span>
                 <span
                   className={`relative z-10 text-[10px] font-medium ${
-                    isActive ? 'text-red-600' : 'text-gray-500'
+                    isActive ? "text-red-600" : "text-gray-500"
                   }`}
                 >
                   {item.label}
@@ -535,7 +578,7 @@ export default function DashboardLayout({
                     {item.badge}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </div>
@@ -544,15 +587,17 @@ export default function DashboardLayout({
       {/* Main Content: ancho = viewport - sidebar para no desbordar a la derecha */}
       <main
         className={`transition-all duration-300 overflow-x-hidden min-w-0 ${
-          isSidebarCollapsed ? 'lg:ml-20 lg:w-[calc(100vw-5rem)]' : 'lg:ml-72 lg:w-[calc(100vw-18rem)]'
+          isSidebarCollapsed
+            ? "lg:ml-20 lg:w-[calc(100vw-5rem)]"
+            : "lg:ml-72 lg:w-[calc(100vw-18rem)]"
         } pt-16 lg:pt-0 pb-20 lg:pb-0`}
       >
         {/* Desktop Header */}
         <header className="hidden lg:flex items-center justify-between px-6 lg:px-8 h-16 bg-white border-b border-gray-200/80 min-w-0">
           <div className="flex items-center gap-4">
             <h1 className="text-xl font-semibold text-gray-900">
-              {filteredNavItems.find((item) => item.id === activeSection)?.label ||
-                'Dashboard'}
+              {filteredNavItems.find((item) => item.id === activeSection)
+                ?.label || "Dashboard"}
             </h1>
           </div>
           <div className="flex items-center gap-4">
@@ -572,7 +617,9 @@ export default function DashboardLayout({
               <Bell className="w-5 h-5" />
               {notificationUnreadCount > 0 && (
                 <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 text-white rounded-full flex items-center justify-center">
-                  {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+                  {notificationUnreadCount > 99
+                    ? "99+"
+                    : notificationUnreadCount}
                 </span>
               )}
             </button>
@@ -583,15 +630,15 @@ export default function DashboardLayout({
                   {user?.name} {user?.lastName}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {currentTime.toLocaleTimeString('es-AR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
+                  {currentTime.toLocaleTimeString("es-AR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
                   })}
                 </p>
               </div>
               <div
                 className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getRoleColor(
-                  user?.role || ''
+                  user?.role || "",
                 )} flex items-center justify-center text-white font-bold shadow-lg shadow-red-500/20`}
               >
                 {user?.name?.[0]}

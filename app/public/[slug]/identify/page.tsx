@@ -3,10 +3,25 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Loader2, AlertCircle, ArrowRight, UserPlus, LogIn } from 'lucide-react';
+import {
+  User,
+  Loader2,
+  AlertCircle,
+  ArrowRight,
+  UserPlus,
+  LogIn,
+  ChevronRight,
+  ChevronLeft,
+} from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
 type TabId = 'identify' | 'new';
+const STEPS = [
+  { id: 1, title: 'Datos personales' },
+  { id: 2, title: 'Contacto y dirección' },
+  { id: 3, title: 'Obra social' },
+  { id: 4, title: 'Otros datos' },
+] as const;
 
 export default function IdentifyPatientPage() {
   const params = useParams();
@@ -14,18 +29,31 @@ export default function IdentifyPatientPage() {
   const slug = params?.slug as string | undefined;
   const [activeTab, setActiveTab] = useState<TabId>('identify');
   const [identifier, setIdentifier] = useState('');
+  const [step, setStep] = useState(1);
   const [fullForm, setFullForm] = useState({
     firstName: '',
     lastName: '',
     dni: '',
+    birthDate: '',
+    gender: '',
     phone: '',
     email: '',
+    address: '',
+    city: '',
+    province: '',
+    department: '',
+    healthInsuranceId: '',
+    affiliateNumber: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    notes: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clinicInfo, setClinicInfo] = useState<{
     name: string;
     address?: string | null;
+    healthInsurances?: Array<{ id: string; name: string; code?: string | null }>;
   } | null>(null);
 
   useEffect(() => {
@@ -61,7 +89,7 @@ export default function IdentifyPatientPage() {
       if (result.patient) {
         sessionStorage.setItem('publicPatientData', JSON.stringify(result.patient));
       }
-      sessionStorage.setItem('publicPatientIsNew', 'false'); // Identificado, no creado
+      sessionStorage.setItem('publicPatientIsNew', 'false');
       router.push(`/public/${slug}/agenda`);
     } catch (err: unknown) {
       const msg =
@@ -77,11 +105,33 @@ export default function IdentifyPatientPage() {
     }
   };
 
+  const goNext = () => {
+    setError(null);
+    if (step === 1 && (!fullForm.firstName.trim() || !fullForm.lastName.trim())) {
+      setError('Nombre y apellido son obligatorios.');
+      return;
+    }
+    if (step === 3 && fullForm.healthInsuranceId && !fullForm.affiliateNumber.trim()) {
+      setError('El número de afiliado es obligatorio cuando elegís obra social.');
+      return;
+    }
+    if (step < 4) setStep(step + 1);
+  };
+
+  const goBack = () => {
+    setError(null);
+    if (step > 1) setStep(step - 1);
+  };
+
   const handleFullFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!fullForm.firstName.trim() || !fullForm.lastName.trim()) {
       setError('Nombre y apellido son obligatorios.');
+      return;
+    }
+    if (fullForm.healthInsuranceId && !fullForm.affiliateNumber.trim()) {
+      setError('El número de afiliado es obligatorio cuando elegís obra social.');
       return;
     }
     if (!slug) return;
@@ -94,6 +144,17 @@ export default function IdentifyPatientPage() {
         dni: fullForm.dni.trim() || undefined,
         phone: fullForm.phone.trim() || undefined,
         email: fullForm.email.trim() || undefined,
+        birthDate: fullForm.birthDate || undefined,
+        gender: fullForm.gender || undefined,
+        address: fullForm.address.trim() || undefined,
+        city: fullForm.city.trim() || undefined,
+        province: fullForm.province.trim() || undefined,
+        department: fullForm.department.trim() || undefined,
+        emergencyContactName: fullForm.emergencyContactName.trim() || undefined,
+        emergencyContactPhone: fullForm.emergencyContactPhone.trim() || undefined,
+        notes: fullForm.notes.trim() || undefined,
+        healthInsuranceId: fullForm.healthInsuranceId || undefined,
+        affiliateNumber: fullForm.affiliateNumber.trim() || undefined,
       });
       sessionStorage.setItem('publicPatientId', result.patientId);
       sessionStorage.setItem('publicClinicId', result.clinicId);
@@ -113,19 +174,28 @@ export default function IdentifyPatientPage() {
     }
   };
 
-  if (!slug) {
-    return null;
-  }
+  const update = (key: keyof typeof fullForm, value: string) => {
+    setFullForm((f) => ({ ...f, [key]: value }));
+  };
+
+  useEffect(() => {
+    if (activeTab === 'new') setStep(1);
+  }, [activeTab]);
+
+  if (!slug) return null;
+
+  const inputCls =
+    'w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]';
+  const healthInsurances = clinicInfo?.healthInsurances ?? [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
+        className="w-full max-w-lg"
       >
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          {/* Header */}
           <div className="p-6 sm:p-8 pb-4">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mx-auto mb-4">
               <User className="w-8 h-8 text-white" />
@@ -134,18 +204,14 @@ export default function IdentifyPatientPage() {
               {clinicInfo?.name ?? 'Reservar Turno'}
             </h1>
             <p className="text-sm text-gray-600 text-center">
-              Si ya sos paciente de esta clínica, ingresá tu DNI, email o teléfono y te identificamos. Si es la primera vez, completá el formulario.
+              Si ya sos paciente, ingresá tu DNI, email o teléfono. Si es la primera vez, completá el formulario.
             </p>
           </div>
 
-          {/* Tabs */}
           <div className="flex border-b border-gray-200">
             <button
               type="button"
-              onClick={() => {
-                setActiveTab('identify');
-                setError(null);
-              }}
+              onClick={() => { setActiveTab('identify'); setError(null); }}
               className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-semibold transition-colors ${
                 activeTab === 'identify'
                   ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50'
@@ -157,10 +223,7 @@ export default function IdentifyPatientPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setActiveTab('new');
-                setError(null);
-              }}
+              onClick={() => { setActiveTab('new'); setError(null); }}
               className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-semibold transition-colors ${
                 activeTab === 'new'
                   ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50'
@@ -185,7 +248,7 @@ export default function IdentifyPatientPage() {
                   className="space-y-4"
                 >
                   <p className="text-sm text-gray-600 mb-4">
-                    Ingresá tu DNI, teléfono o email y te identificaremos.
+                    Ingresá tu DNI, teléfono o email.
                   </p>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -197,30 +260,23 @@ export default function IdentifyPatientPage() {
                       autoComplete="off"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
+                      className={inputCls}
                       placeholder=""
                     />
                   </div>
-
                   {error && (
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-800">
                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
                       {error}
                     </div>
                   )}
-
                   <button
                     type="submit"
                     disabled={submitting}
                     className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-[48px]"
                   >
-                    {submitting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <>
-                        Identificarme
-                        <ArrowRight className="w-4 h-4" />
-                      </>
+                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                      <>Identificarme <ArrowRight className="w-4 h-4" /></>
                     )}
                   </button>
                 </motion.form>
@@ -231,74 +287,180 @@ export default function IdentifyPatientPage() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
                   transition={{ duration: 0.2 }}
-                  onSubmit={handleFullFormSubmit}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (step < 4) goNext();
+                    else handleFullFormSubmit(e);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && step < 4) {
+                      e.preventDefault();
+                      goNext();
+                    }
+                  }}
                   className="space-y-4"
                 >
-                  <p className="text-sm text-gray-600 mb-4">
-                    Completá el formulario para registrarte como paciente y elegir un turno.
-                  </p>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nombre *
-                    </label>
-                    <input
-                      type="text"
-                      value={fullForm.firstName}
-                      onChange={(e) => setFullForm((f) => ({ ...f, firstName: e.target.value }))}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                      placeholder="Ej. Juan"
-                      required
-                    />
+                  {/* Stepper */}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center w-full gap-0">
+                      {STEPS.map((s, i) => (
+                        <div key={s.id} className="contents">
+                          <div
+                            className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 ${
+                              step === s.id
+                                ? 'bg-indigo-600 text-white'
+                                : step > s.id
+                                  ? 'bg-indigo-100 text-indigo-700'
+                                  : 'bg-gray-100 text-gray-500'
+                            }`}
+                          >
+                            {s.id}
+                          </div>
+                          {i < STEPS.length - 1 && (
+                            <div
+                              className={`flex-1 h-1 mx-1 rounded-full min-w-0 ${
+                                step > s.id ? 'bg-indigo-200' : 'bg-gray-200'
+                              }`}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-sm font-medium text-indigo-700">{STEPS[step - 1].title}</p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Apellido *
-                    </label>
-                    <input
-                      type="text"
-                      value={fullForm.lastName}
-                      onChange={(e) => setFullForm((f) => ({ ...f, lastName: e.target.value }))}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                      placeholder="Ej. Pérez"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      DNI
-                    </label>
-                    <input
-                      type="text"
-                      value={fullForm.dni}
-                      onChange={(e) => setFullForm((f) => ({ ...f, dni: e.target.value }))}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                      placeholder="Ej. 12345678"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Teléfono
-                    </label>
-                    <input
-                      type="text"
-                      value={fullForm.phone}
-                      onChange={(e) => setFullForm((f) => ({ ...f, phone: e.target.value }))}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                      placeholder="Ej. +54 11 1234-5678"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={fullForm.email}
-                      onChange={(e) => setFullForm((f) => ({ ...f, email: e.target.value }))}
-                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                      placeholder="Ej. juan@email.com"
-                    />
-                  </div>
+
+                  {/* Step 1 */}
+                  {step === 1 && (
+                    <motion.div
+                      key="s1"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                        <input type="text" value={fullForm.firstName} onChange={(e) => update('firstName', e.target.value)} className={inputCls} placeholder="Ej. Juan" required />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
+                        <input type="text" value={fullForm.lastName} onChange={(e) => update('lastName', e.target.value)} className={inputCls} placeholder="Ej. Pérez" required />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">DNI</label>
+                        <input type="text" value={fullForm.dni} onChange={(e) => update('dni', e.target.value)} className={inputCls} placeholder="Ej. 12345678" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de nacimiento</label>
+                        <input type="date" value={fullForm.birthDate} onChange={(e) => update('birthDate', e.target.value)} max={new Date().toISOString().slice(0, 10)} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
+                        <select value={fullForm.gender} onChange={(e) => update('gender', e.target.value)} className={inputCls}>
+                          <option value="">Seleccionar...</option>
+                          <option value="male">Masculino</option>
+                          <option value="female">Femenino</option>
+                          <option value="other">Otro</option>
+                        </select>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Step 2 */}
+                  {step === 2 && (
+                    <motion.div
+                      key="s2"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                        <input type="text" value={fullForm.phone} onChange={(e) => update('phone', e.target.value)} className={inputCls} placeholder="Ej. +54 11 1234-5678" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input type="email" value={fullForm.email} onChange={(e) => update('email', e.target.value)} className={inputCls} placeholder="Ej. juan@email.com" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                        <input type="text" value={fullForm.address} onChange={(e) => update('address', e.target.value)} className={inputCls} placeholder="Ej. Av. Corrientes 1234" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                          <input type="text" value={fullForm.city} onChange={(e) => update('city', e.target.value)} className={inputCls} placeholder="Ej. CABA" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                          <input type="text" value={fullForm.province} onChange={(e) => update('province', e.target.value)} className={inputCls} placeholder="Ej. Buenos Aires" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Departamento / Partido</label>
+                        <input type="text" value={fullForm.department} onChange={(e) => update('department', e.target.value)} className={inputCls} placeholder="Ej. Comuna 3" />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Step 3 */}
+                  {step === 3 && (
+                    <motion.div
+                      key="s3"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Obra social</label>
+                        <select
+                          value={fullForm.healthInsuranceId}
+                          onChange={(e) => { update('healthInsuranceId', e.target.value); if (!e.target.value) update('affiliateNumber', ''); }}
+                          className={inputCls}
+                        >
+                          <option value="">Sin obra social</option>
+                          {healthInsurances.map((hi) => (
+                            <option key={hi.id} value={hi.id}>
+                              {hi.name}
+                              {hi.code ? ` (${hi.code})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {fullForm.healthInsuranceId && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Número de afiliado *</label>
+                          <input type="text" value={fullForm.affiliateNumber} onChange={(e) => update('affiliateNumber', e.target.value)} required={!!fullForm.healthInsuranceId} className={inputCls} placeholder="Ej. 12345678" />
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* Step 4 */}
+                  {step === 4 && (
+                    <motion.div
+                      key="s4"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Contacto de emergencia (nombre)</label>
+                        <input type="text" value={fullForm.emergencyContactName} onChange={(e) => update('emergencyContactName', e.target.value)} className={inputCls} placeholder="Ej. María Pérez" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Contacto de emergencia (teléfono)</label>
+                        <input type="text" value={fullForm.emergencyContactPhone} onChange={(e) => update('emergencyContactPhone', e.target.value)} className={inputCls} placeholder="Ej. +54 11 9876-5432" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                        <textarea value={fullForm.notes} onChange={(e) => update('notes', e.target.value)} rows={2} className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 resize-none" placeholder="Notas opcionales..." />
+                      </div>
+                    </motion.div>
+                  )}
 
                   {error && (
                     <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-800">
@@ -307,20 +469,36 @@ export default function IdentifyPatientPage() {
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-[48px]"
-                  >
-                    {submitting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                  <div className="flex gap-2 pt-2">
+                    {step > 1 ? (
+                      <button
+                        type="button"
+                        onClick={goBack}
+                        className="py-3.5 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 min-h-[48px] inline-flex items-center gap-2"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Anterior
+                      </button>
+                    ) : null}
+                    {step < 4 ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); goNext(); }}
+                        className="flex-1 py-3.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 inline-flex items-center justify-center gap-2 min-h-[48px]"
+                      >
+                        Siguiente
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
                     ) : (
-                      <>
-                        Registrarme y continuar
-                        <ArrowRight className="w-4 h-4" />
-                      </>
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        className="flex-1 py-3.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-[48px]"
+                      >
+                        {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Registrarme y continuar'}
+                      </button>
                     )}
-                  </button>
+                  </div>
                 </motion.form>
               )}
             </AnimatePresence>

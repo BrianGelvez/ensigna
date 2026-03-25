@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import OverviewSection from '@/components/dashboard/OverviewSection';
 import ClinicSection from '@/components/dashboard/ClinicSection';
 import TeamSection from '@/components/dashboard/TeamSection';
@@ -22,11 +21,13 @@ function DashboardPageInner() {
   const [activeSection, setActiveSection] = useState('overview');
   const [refreshTeamKey, setRefreshTeamKey] = useState(0);
 
-  // Sync section from URL
+  // Sync section from URL (sin ?section= → resumen / overview)
   useEffect(() => {
     const section = searchParams.get('section');
     if (section) {
       setActiveSection(section);
+    } else {
+      setActiveSection('overview');
     }
   }, [searchParams]);
 

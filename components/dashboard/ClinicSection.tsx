@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import EditClinicModal from './EditClinicModal';
+import HealthInsurancesSection from './HealthInsurancesSection';
 
 const DAYS_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
@@ -187,6 +188,11 @@ export default function ClinicSection() {
             )}
           </div>
         </motion.div>
+
+        {/* Health Insurances */}
+        <div className="lg:col-span-2">
+          <HealthInsurancesSection />
+        </div>
       </div>
 
       {/* Stats */}

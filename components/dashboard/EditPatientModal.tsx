@@ -2,8 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Loader2, AlertCircle, User } from 'lucide-react';
+import {
+  X,
+  Loader2,
+  AlertCircle,
+  User,
+  Phone,
+  MapPin,
+  Heart,
+  FileText,
+} from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EditPatientModalProps {
   open: boolean;
@@ -13,9 +23,19 @@ interface EditPatientModalProps {
     id: string;
     firstName: string;
     lastName: string;
+    medicalRecordNumber?: number | null;
     dni?: string | null;
     phone?: string | null;
     email?: string | null;
+    birthDate?: string | null;
+    gender?: string | null;
+    address?: string | null;
+    city?: string | null;
+    province?: string | null;
+    department?: string | null;
+    emergencyContactName?: string | null;
+    emergencyContactPhone?: string | null;
+    notes?: string | null;
     isActive?: boolean;
   };
 }
@@ -26,24 +46,53 @@ export default function EditPatientModal({
   onSuccess,
   patient,
 }: EditPatientModalProps) {
+  const { user } = useAuth();
+  const canManageMedicalRecordNumber =
+    user?.role === 'OWNER' || user?.role === 'ADMIN';
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
+    medicalRecordNumber: '',
     dni: '',
     phone: '',
     email: '',
+    birthDate: '',
+    gender: '',
+    address: '',
+    city: '',
+    province: '',
+    department: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    notes: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && patient) {
+      const bd = patient.birthDate
+        ? new Date(patient.birthDate).toISOString().slice(0, 10)
+        : '';
       setForm({
         firstName: patient.firstName ?? '',
         lastName: patient.lastName ?? '',
+        medicalRecordNumber:
+          patient.medicalRecordNumber != null
+            ? String(patient.medicalRecordNumber)
+            : '',
         dni: patient.dni ?? '',
         phone: patient.phone ?? '',
         email: patient.email ?? '',
+        birthDate: bd,
+        gender: patient.gender ?? '',
+        address: patient.address ?? '',
+        city: patient.city ?? '',
+        province: patient.province ?? '',
+        department: patient.department ?? '',
+        emergencyContactName: patient.emergencyContactName ?? '',
+        emergencyContactPhone: patient.emergencyContactPhone ?? '',
+        notes: patient.notes ?? '',
       });
       setError(null);
     }
@@ -56,14 +105,35 @@ export default function EditPatientModal({
       setError('Nombre y apellido son obligatorios.');
       return;
     }
+    if (canManageMedicalRecordNumber && form.medicalRecordNumber.trim()) {
+      const mrn = Number.parseInt(form.medicalRecordNumber, 10);
+      if (!Number.isInteger(mrn) || mrn <= 0) {
+        setError('El número de historia clínica debe ser un entero positivo.');
+        return;
+      }
+    }
     setSubmitting(true);
     try {
+      const medicalRecordNumber =
+        canManageMedicalRecordNumber && form.medicalRecordNumber.trim()
+          ? Number.parseInt(form.medicalRecordNumber, 10)
+          : undefined;
       await apiClient.updatePatient(patient.id, {
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
+        medicalRecordNumber,
         dni: form.dni.trim() || undefined,
         phone: form.phone.trim() || undefined,
         email: form.email.trim() || undefined,
+        birthDate: form.birthDate || undefined,
+        gender: form.gender || undefined,
+        address: form.address.trim() || undefined,
+        city: form.city.trim() || undefined,
+        province: form.province.trim() || undefined,
+        department: form.department.trim() || undefined,
+        emergencyContactName: form.emergencyContactName.trim() || undefined,
+        emergencyContactPhone: form.emergencyContactPhone.trim() || undefined,
+        notes: form.notes.trim() || undefined,
       });
       onSuccess();
       onClose();
@@ -95,7 +165,7 @@ export default function EditPatientModal({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.98 }}
           transition={{ type: 'tween', duration: 0.2 }}
-          className="relative z-10 w-full sm:max-w-md sm:max-h-[90vh] max-h-[85vh] sm:rounded-2xl rounded-t-2xl overflow-hidden bg-white shadow-xl border border-gray-100 flex flex-col"
+          className="relative z-10 w-full sm:max-w-lg sm:max-h-[90vh] max-h-[85vh] sm:rounded-2xl rounded-t-2xl overflow-hidden bg-white shadow-xl border border-gray-100 flex flex-col"
         >
           <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -114,59 +184,212 @@ export default function EditPatientModal({
 
           <form
             onSubmit={handleSubmit}
-            className="overflow-y-auto flex-1 p-4 sm:p-6 space-y-4 safe-area-pb"
+            className="overflow-y-auto flex-1 p-4 sm:p-6 space-y-5 safe-area-pb"
           >
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
-              <input
-                type="text"
-                value={form.firstName}
-                onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                placeholder="Ej. Juan"
-                required
-              />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <User className="w-4 h-4 text-indigo-600" />
+                Datos personales
+              </div>
+              <div className="space-y-3 pl-6 border-l-2 border-gray-100">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                  <input
+                    type="text"
+                    value={form.firstName}
+                    onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    placeholder="Ej. Juan"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
+                  <input
+                    type="text"
+                    value={form.lastName}
+                    onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    placeholder="Ej. Pérez"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    N° Historia Clínica
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={form.medicalRecordNumber}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        medicalRecordNumber: e.target.value,
+                      }))
+                    }
+                    disabled={!canManageMedicalRecordNumber}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px] disabled:bg-gray-100 disabled:text-gray-500"
+                    placeholder="Ej. 405"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">DNI</label>
+                  <input
+                    type="text"
+                    value={form.dni}
+                    onChange={(e) => setForm((f) => ({ ...f, dni: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    placeholder="Ej. 12345678"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de nacimiento</label>
+                  <input
+                    type="date"
+                    value={form.birthDate}
+                    onChange={(e) => setForm((f) => ({ ...f, birthDate: e.target.value }))}
+                    max={new Date().toISOString().slice(0, 10)}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
+                  <select
+                    value={form.gender}
+                    onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="male">Masculino</option>
+                    <option value="female">Femenino</option>
+                    <option value="other">Otro</option>
+                  </select>
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
-              <input
-                type="text"
-                value={form.lastName}
-                onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                placeholder="Ej. Pérez"
-                required
-              />
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Phone className="w-4 h-4 text-indigo-600" />
+                Contacto
+              </div>
+              <div className="space-y-3 pl-6 border-l-2 border-gray-100">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    value={form.phone}
+                    onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    placeholder="Ej. +54 11 1234-5678"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    placeholder="Ej. juan@email.com"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">DNI</label>
-              <input
-                type="text"
-                value={form.dni}
-                onChange={(e) => setForm((f) => ({ ...f, dni: e.target.value }))}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                placeholder="Ej. 12345678"
-              />
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <MapPin className="w-4 h-4 text-indigo-600" />
+                Dirección
+              </div>
+              <div className="space-y-3 pl-6 border-l-2 border-gray-100">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                  <input
+                    type="text"
+                    value={form.address}
+                    onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    placeholder="Ej. Av. Corrientes 1234"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                    <input
+                      type="text"
+                      value={form.city}
+                      onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                    <input
+                      type="text"
+                      value={form.province}
+                      onChange={(e) => setForm((f) => ({ ...f, province: e.target.value }))}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Departamento / Partido</label>
+                  <input
+                    type="text"
+                    value={form.department}
+                    onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
-              <input
-                type="text"
-                value={form.phone}
-                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                placeholder="Ej. +54 11 1234-5678"
-              />
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Heart className="w-4 h-4 text-indigo-600" />
+                Contacto de emergencia
+              </div>
+              <div className="space-y-3 pl-6 border-l-2 border-gray-100">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                  <input
+                    type="text"
+                    value={form.emergencyContactName}
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactName: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    placeholder="Ej. María Pérez"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                  <input
+                    type="text"
+                    value={form.emergencyContactPhone}
+                    onChange={(e) => setForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]"
+                    placeholder="Ej. +54 11 9876-5432"
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px]"
-                placeholder="Ej. juan@email.com"
-              />
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <FileText className="w-4 h-4 text-indigo-600" />
+                Notas
+              </div>
+              <div className="pl-6 border-l-2 border-gray-100">
+                <textarea
+                  value={form.notes}
+                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                  rows={2}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"
+                  placeholder="Observaciones..."
+                />
+              </div>
             </div>
 
             {error && (

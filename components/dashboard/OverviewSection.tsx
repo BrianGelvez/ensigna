@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   TrendingUp,
@@ -7,32 +9,39 @@ import {
   Calendar,
   Clock,
   Activity,
-  ArrowUpRight,
-  ArrowDownRight,
   Sparkles,
   Building2,
-  UserCheck,
+  AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  UserPlus,
+  Stethoscope,
+  Loader2,
+  AlertCircle,
+  Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { apiClient } from '@/lib/api';
+
+type DashboardSummary = Awaited<ReturnType<typeof apiClient.getDashboardSummary>>;
 
 interface StatCardProps {
   title: string;
   value: string;
-  change?: string;
-  changeType?: 'positive' | 'negative' | 'neutral';
   icon: React.ReactNode;
   color: string;
   delay?: number;
+  /** Texto secundario bajo el valor (p. ej. variación % ingresos) */
+  trend?: { text: string; className: string };
 }
 
 function StatCard({
   title,
   value,
-  change,
-  changeType = 'neutral',
   icon,
   color,
   delay = 0,
+  trend,
 }: StatCardProps) {
   return (
     <motion.div
@@ -42,29 +51,12 @@ function StatCard({
       className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all duration-300"
     >
       <div className="flex items-start justify-between">
-        <div>
+        <div className="min-w-0 pr-2">
           <p className="text-sm font-medium text-gray-500">{title}</p>
           <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
-          {change && (
-            <div className="mt-2 flex items-center gap-1">
-              {changeType === 'positive' ? (
-                <ArrowUpRight className="w-4 h-4 text-emerald-500" />
-              ) : changeType === 'negative' ? (
-                <ArrowDownRight className="w-4 h-4 text-red-500" />
-              ) : null}
-              <span
-                className={`text-sm font-medium ${
-                  changeType === 'positive'
-                    ? 'text-emerald-600'
-                    : changeType === 'negative'
-                    ? 'text-red-600'
-                    : 'text-gray-500'
-                }`}
-              >
-                {change}
-              </span>
-            </div>
-          )}
+          {trend ? (
+            <p className={`mt-1.5 text-sm ${trend.className}`}>{trend.text}</p>
+          ) : null}
         </div>
         <div
           className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}
@@ -76,8 +68,145 @@ function StatCard({
   );
 }
 
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return 'Ahora';
+  if (m < 60) return `Hace ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `Hace ${h} h`;
+  const d = Math.floor(h / 24);
+  return `Hace ${d} d`;
+}
+
+function formatUtcTime(iso: string): string {
+  const dt = new Date(iso);
+  const h = dt.getUTCHours();
+  const min = dt.getUTCMinutes();
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+function activityIcon(type: string) {
+  switch (type) {
+    case 'APPOINTMENT_CREATED':
+      return <Calendar className="w-4 h-4 text-blue-600" />;
+    case 'APPOINTMENT_CANCELED':
+      return <XCircle className="w-4 h-4 text-red-600" />;
+    case 'APPOINTMENT_CONFIRMED':
+      return <CheckCircle2 className="w-4 h-4 text-emerald-600" />;
+    case 'PATIENT_CREATED':
+      return <UserPlus className="w-4 h-4 text-violet-600" />;
+    case 'PROFESSIONAL_UPDATED':
+      return <Stethoscope className="w-4 h-4 text-indigo-600" />;
+    default:
+      return <Activity className="w-4 h-4 text-gray-500" />;
+  }
+}
+
+function upcomingStatusStyle(status: string): {
+  dot: string;
+  ring: string;
+} {
+  if (status === 'CONFIRMED')
+    return { dot: 'bg-emerald-500', ring: 'ring-emerald-200' };
+  if (status === 'NO_SHOW')
+    return { dot: 'bg-red-500', ring: 'ring-red-200' };
+  return { dot: 'bg-amber-500', ring: 'ring-amber-200' };
+}
+
+function countdownLabel(minutesUntil: number): string {
+  if (minutesUntil <= 0) return 'Ahora';
+  if (minutesUntil < 60) return `en ${minutesUntil} min`;
+  const h = Math.floor(minutesUntil / 60);
+  const m = minutesUntil % 60;
+  return m ? `en ${h} h ${m} min` : `en ${h} h`;
+}
+
+function formatMoneyArs(n: number): string {
+  return new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+function formatMomPercentForUi(p: number): string {
+  const rounded = Math.round(p * 10) / 10;
+  if (Math.abs(rounded - Math.round(rounded)) < 1e-9) {
+    return String(Math.round(rounded));
+  }
+  return rounded.toFixed(1).replace('.', ',');
+}
+
+function monthlyIncomeTrend(summary: DashboardSummary): {
+  text: string;
+  className: string;
+} {
+  const cur = summary.monthlyIncome ?? 0;
+  const pct =
+    summary.monthlyIncomeMomPercent !== undefined
+      ? summary.monthlyIncomeMomPercent
+      : null;
+
+  if (pct === null) {
+    if (cur > 0) {
+      return {
+        text: 'Nuevo vs mes anterior (sin cobros registrados)',
+        className: 'text-emerald-600',
+      };
+    }
+    return {
+      text: '0% vs mes anterior',
+      className: 'text-gray-500',
+    };
+  }
+
+  if (pct > 0) {
+    return {
+      text: `+${formatMomPercentForUi(pct)}% este mes`,
+      className: 'text-emerald-600',
+    };
+  }
+  if (pct < 0) {
+    return {
+      text: `${formatMomPercentForUi(pct)}% este mes`,
+      className: 'text-red-600',
+    };
+  }
+  return {
+    text: '0% este mes',
+    className: 'text-gray-500',
+  };
+}
+
 export default function OverviewSection() {
+  const router = useRouter();
   const { user, clinic } = useAuth();
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadSummary = useCallback(async () => {
+    setError(null);
+    try {
+      const data = await apiClient.getDashboardSummary();
+      setSummary(data);
+    } catch (err: unknown) {
+      setError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? 'No se pudo cargar el resumen.',
+      );
+      setSummary(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSummary();
+    const t = setInterval(loadSummary, 120_000);
+    return () => clearInterval(t);
+  }, [loadSummary]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -86,125 +215,93 @@ export default function OverviewSection() {
     return 'Buenas noches';
   };
 
-  const getRoleSpecificStats = () => {
-    switch (user?.role) {
-      case 'OWNER':
-        return [
+  const isStaff = user?.role === 'STAFF';
+
+  const incomeMomTrend = summary ? monthlyIncomeTrend(summary) : undefined;
+
+  const stats: StatCardProps[] = summary
+    ? isStaff
+      ? [
           {
-            title: 'Profesionales',
-            value: '8',
-            change: '+2 este mes',
-            changeType: 'positive' as const,
-            icon: <Users className="w-6 h-6 text-white" />,
-            color: 'bg-gradient-to-br from-blue-500 to-blue-600',
-          },
-          {
-            title: 'Turnos Hoy',
-            value: '24',
-            change: '+15% vs ayer',
-            changeType: 'positive' as const,
-            icon: <Calendar className="w-6 h-6 text-white" />,
-            color: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
-          },
-          {
-            title: 'Tasa Asistencia',
-            value: '94%',
-            change: '+3% este mes',
-            changeType: 'positive' as const,
-            icon: <Activity className="w-6 h-6 text-white" />,
-            color: 'bg-gradient-to-br from-purple-500 to-purple-600',
-          },
-          {
-            title: 'Ingresos Mensuales',
-            value: '$1.2M',
-            change: '+8% vs mes anterior',
-            changeType: 'positive' as const,
-            icon: <TrendingUp className="w-6 h-6 text-white" />,
-            color: 'bg-gradient-to-br from-amber-500 to-amber-600',
-          },
-        ];
-      case 'ADMIN':
-        return [
-          {
-            title: 'Profesionales Activos',
-            value: '8',
-            icon: <Users className="w-6 h-6 text-white" />,
-            color: 'bg-gradient-to-br from-blue-500 to-blue-600',
-          },
-          {
-            title: 'Turnos Hoy',
-            value: '24',
-            change: '+15% vs ayer',
-            changeType: 'positive' as const,
+            title: 'Mis turnos hoy',
+            value: String(summary.appointmentsToday),
             icon: <Calendar className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
           },
           {
             title: 'Pendientes',
-            value: '3',
+            value: String(summary.appointmentsPending),
             icon: <Clock className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-amber-500 to-amber-600',
           },
           {
-            title: 'Tasa Asistencia',
-            value: '94%',
-            change: '+3%',
-            changeType: 'positive' as const,
+            title: 'Ingresos mensuales',
+            value: formatMoneyArs(summary.monthlyIncome ?? 0),
+            icon: <Wallet className="w-6 h-6 text-white" />,
+            color: 'bg-gradient-to-br from-teal-500 to-teal-600',
+            trend: incomeMomTrend,
+          },
+          {
+            title: 'Tasa asistencia (7 días)',
+            value: `${summary.attendanceRate}%`,
             icon: <Activity className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-purple-500 to-purple-600',
           },
-        ];
-      case 'STAFF':
-        return [
           {
-            title: 'Mis Turnos Hoy',
-            value: '6',
+            title: 'Profesionales activos',
+            value: String(summary.professionalsActive),
+            icon: <Users className="w-6 h-6 text-white" />,
+            color: 'bg-gradient-to-br from-blue-500 to-blue-600',
+          },
+        ]
+      : [
+          {
+            title: 'Profesionales activos',
+            value: String(summary.professionalsActive),
+            icon: <Users className="w-6 h-6 text-white" />,
+            color: 'bg-gradient-to-br from-blue-500 to-blue-600',
+          },
+          {
+            title: 'Turnos hoy',
+            value: String(summary.appointmentsToday),
             icon: <Calendar className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
           },
           {
-            title: 'Próximo Turno',
-            value: '10:30',
+            title: 'Pendientes',
+            value: String(summary.appointmentsPending),
             icon: <Clock className="w-6 h-6 text-white" />,
-            color: 'bg-gradient-to-br from-blue-500 to-blue-600',
+            color: 'bg-gradient-to-br from-amber-500 to-amber-600',
           },
           {
-            title: 'Pacientes Atendidos',
-            value: '128',
-            change: 'este mes',
-            changeType: 'neutral' as const,
-            icon: <UserCheck className="w-6 h-6 text-white" />,
+            title: 'Tasa asistencia (7 días)',
+            value: `${summary.attendanceRate}%`,
+            icon: <Activity className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-purple-500 to-purple-600',
           },
           {
-            title: 'Tasa Asistencia',
-            value: '96%',
-            change: '+2%',
-            changeType: 'positive' as const,
-            icon: <Activity className="w-6 h-6 text-white" />,
-            color: 'bg-gradient-to-br from-amber-500 to-amber-600',
+            title: 'Ingresos mensuales',
+            value: formatMoneyArs(summary.monthlyIncome ?? 0),
+            icon: <Wallet className="w-6 h-6 text-white" />,
+            color: 'bg-gradient-to-br from-teal-500 to-teal-600',
+            trend: incomeMomTrend,
           },
-        ];
-      default:
-        return [];
-    }
-  };
+        ]
+    : [];
 
-  const stats = getRoleSpecificStats();
+  const canBook = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   return (
     <div className="space-y-6 min-w-0 max-w-full">
-      {/* Welcome Banner */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-600 via-red-700 to-rose-800 p-6 sm:p-8 text-white"
       >
-        {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-2xl" />
         <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-rose-500/30 rounded-full blur-2xl" />
-        
+
         <div className="relative">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -223,11 +320,24 @@ export default function OverviewSection() {
               </h1>
               <p className="mt-2 text-white/80 max-w-lg">
                 {user?.role === 'OWNER'
-                  ? 'Aquí tienes un resumen de la actividad de tu clínica.'
+                  ? 'Resumen operativo de tu clínica en tiempo real.'
                   : user?.role === 'ADMIN'
-                  ? 'Gestiona la operación diaria de la clínica.'
-                  : 'Revisa tu agenda y gestiona tus turnos del día.'}
+                    ? 'Métricas y turnos para la operación diaria.'
+                    : 'Tu agenda y próximos turnos.'}
               </p>
+              {summary?.nextUpcoming && (
+                <div className="mt-4 inline-flex flex-col sm:flex-row sm:items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 text-sm backdrop-blur-sm border border-white/20 max-w-xl">
+                  <span className="font-semibold text-white flex items-center gap-2">
+                    <Clock className="w-4 h-4 shrink-0" />
+                    Próximo turno {countdownLabel(summary.nextUpcoming.minutesUntil)}
+                  </span>
+                  <span className="text-white/90">
+                    {summary.nextUpcoming.patientName} ·{' '}
+                    {formatUtcTime(summary.nextUpcoming.startTime)} ·{' '}
+                    {summary.nextUpcoming.professionalName}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="hidden sm:flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4">
               <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
@@ -235,23 +345,58 @@ export default function OverviewSection() {
               </div>
               <div>
                 <p className="text-sm text-white/70">Clínica</p>
-                <p className="font-semibold text-lg">{clinic?.name || 'ENSIGNA'}</p>
+                <p className="font-semibold text-lg">
+                  {clinic?.name || 'ENSIGNA'}
+                </p>
               </div>
             </div>
           </div>
         </div>
       </motion.div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
-          <StatCard key={stat.title} {...stat} delay={index * 0.1} />
-        ))}
-      </div>
+      {summary?.alerts &&
+        (summary.alerts.noShowRateHigh ||
+          summary.alerts.pendingAppointmentsHigh) && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex flex-wrap items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-900 space-y-1">
+              {summary.alerts.pendingAppointmentsHigh && (
+                <p>
+                  <strong>Alta carga:</strong> hay muchos turnos pendientes
+                  (programados o confirmados) a futuro. Revisá la agenda.
+                </p>
+              )}
+              {summary.alerts.noShowRateHigh && (
+                <p>
+                  <strong>Ausentismo elevado:</strong> en los últimos 7 días la
+                  tasa de no presentación es alta respecto a turnos finalizados.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
-      {/* Quick Actions & Activity */}
+      {error && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-100 text-sm text-red-800">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {loading && !summary ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Loader2 className="w-10 h-10 animate-spin text-red-600" />
+          <p className="text-sm text-gray-500">Cargando métricas...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          {stats.map((stat, index) => (
+            <StatCard key={stat.title} {...stat} delay={index * 0.1} />
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 min-w-0">
-        {/* Quick Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -262,24 +407,45 @@ export default function OverviewSection() {
             Acciones rápidas
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 min-w-0">
-            {[
-              { label: 'Nuevo turno', icon: Calendar, color: 'bg-blue-50 text-blue-600 hover:bg-blue-100' },
-              { label: 'Ver agenda', icon: Clock, color: 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' },
-              { label: 'Pacientes', icon: Users, color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
-              { label: 'Reportes', icon: TrendingUp, color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
-            ].map((action) => (
-              <button
-                key={action.label}
-                className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-colors ${action.color}`}
-              >
-                <action.icon className="w-6 h-6" />
-                <span className="text-sm font-medium">{action.label}</span>
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  canBook ? '/dashboard/agenda?book=1' : '/dashboard/agenda',
+                )
+              }
+              className="flex flex-col items-center gap-2 p-4 rounded-xl transition-colors bg-blue-50 text-blue-600 hover:bg-blue-100"
+            >
+              <Calendar className="w-6 h-6" />
+              <span className="text-sm font-medium">Nuevo turno</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/agenda')}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl transition-colors bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+            >
+              <Clock className="w-6 h-6" />
+              <span className="text-sm font-medium">Ver agenda</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/patients')}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl transition-colors bg-purple-50 text-purple-600 hover:bg-purple-100"
+            >
+              <Users className="w-6 h-6" />
+              <span className="text-sm font-medium">Pacientes</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/reports')}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl transition-colors bg-amber-50 text-amber-600 hover:bg-amber-100"
+            >
+              <TrendingUp className="w-6 h-6" />
+              <span className="text-sm font-medium">Reportes</span>
+            </button>
           </div>
         </motion.div>
 
-        {/* Recent Activity */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -289,33 +455,35 @@ export default function OverviewSection() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Actividad reciente
           </h3>
-          <div className="space-y-4">
-            {[
-              { text: 'Nuevo turno confirmado', time: 'Hace 5 min', type: 'success' },
-              { text: 'Paciente canceló turno', time: 'Hace 15 min', type: 'warning' },
-              { text: 'Dr. López actualizó horarios', time: 'Hace 1 hora', type: 'info' },
-            ].map((activity, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div
-                  className={`w-2 h-2 mt-2 rounded-full ${
-                    activity.type === 'success'
-                      ? 'bg-emerald-500'
-                      : activity.type === 'warning'
-                      ? 'bg-amber-500'
-                      : 'bg-blue-500'
-                  }`}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-900">{activity.text}</p>
-                  <p className="text-xs text-gray-500">{activity.time}</p>
+          {!summary?.recentActivity?.length ? (
+            <p className="text-sm text-gray-500">
+              Aún no hay actividad registrada en el período reciente.
+            </p>
+          ) : (
+            <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1">
+              {summary.recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-3">
+                  <div className="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100">
+                    {activityIcon(activity.type)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900">
+                      {activity.title}
+                    </p>
+                    <p className="text-xs text-gray-600 line-clamp-2">
+                      {activity.message}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {formatRelativeTime(activity.createdAt)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </motion.div>
       </div>
 
-      {/* Upcoming Schedule */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -323,44 +491,55 @@ export default function OverviewSection() {
         className="min-w-0 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 overflow-hidden"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Próximos turnos</h3>
-          <button className="text-sm font-medium text-red-600 hover:text-red-700">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Próximos turnos (hoy)
+          </h3>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/agenda')}
+            className="text-sm font-medium text-red-600 hover:text-red-700"
+          >
             Ver todos
           </button>
         </div>
-        <div className="overflow-x-auto -mx-6 px-6 scrollbar-thin">
-          <div className="flex gap-4 min-w-max pb-2">
-            {[
-              { time: '09:00', patient: 'María García', type: 'Consulta general', status: 'confirmed' },
-              { time: '09:30', patient: 'Juan Pérez', type: 'Control', status: 'pending' },
-              { time: '10:00', patient: 'Ana López', type: 'Primera visita', status: 'confirmed' },
-              { time: '10:30', patient: 'Carlos Ruiz', type: 'Seguimiento', status: 'confirmed' },
-              { time: '11:00', patient: 'Laura Martín', type: 'Consulta', status: 'pending' },
-            ].map((appointment, index) => (
-              <div
-                key={index}
-                className="flex-shrink-0 w-48 p-4 rounded-xl bg-gray-50 border border-gray-100 hover:border-gray-200 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-lg font-bold text-gray-900">
-                    {appointment.time}
-                  </span>
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      appointment.status === 'confirmed'
-                        ? 'bg-emerald-500'
-                        : 'bg-amber-500'
-                    }`}
-                  />
-                </div>
-                <p className="font-medium text-gray-900 truncate">
-                  {appointment.patient}
-                </p>
-                <p className="text-sm text-gray-500 truncate">{appointment.type}</p>
-              </div>
-            ))}
+        {!summary?.upcomingAppointments?.length ? (
+          <p className="text-sm text-gray-500 py-6 text-center">
+            No hay turnos programados o confirmados para el resto del día.
+          </p>
+        ) : (
+          <div className="overflow-x-auto -mx-6 px-6 scrollbar-thin">
+            <div className="flex gap-4 min-w-max py-2">
+              {summary.upcomingAppointments.map((apt) => {
+                const st = upcomingStatusStyle(apt.status);
+                return (
+                  <div
+                    key={apt.id}
+                    className={`flex-shrink-0 w-52 p-4 rounded-xl bg-gray-50 border border-gray-100 ring-2 ${st.ring} hover:border-gray-200 transition-colors`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-lg font-bold text-gray-900">
+                        {formatUtcTime(apt.startTime)}
+                      </span>
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ring-2 ring-white ${st.dot}`}
+                        title={apt.status}
+                      />
+                    </div>
+                    <p className="font-medium text-gray-900 truncate">
+                      {apt.patientName}
+                    </p>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {apt.professionalName}
+                    </p>
+                    <p className="text-sm text-gray-600 truncate mt-1">
+                      {apt.reason || 'Sin motivo indicado'}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </motion.div>
     </div>
   );

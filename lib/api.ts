@@ -509,6 +509,97 @@ class ApiClient {
     return response.data;
   }
 
+  /**
+   * Resumen operativo del dashboard (KPIs, actividad, próximos turnos). Una sola request.
+   */
+  // --- Pagos / Finanzas ---
+
+  async getPaymentsSummary(): Promise<{
+    todayIncome: number;
+    totalIncome: number;
+    pendingIncome: number;
+    byMethod: { CASH: number; CARD: number; TRANSFER: number; OTHER: number };
+    bySource: { PRIVATE: number; INSURANCE: number };
+  }> {
+    const response = await this.client.get('/payments/summary');
+    return response.data;
+  }
+
+  async getPayments(params?: {
+    fromDate?: string;
+    toDate?: string;
+    status?: string;
+    source?: string;
+    appointmentId?: string;
+  }) {
+    const q = new URLSearchParams();
+    if (params?.fromDate) q.set('fromDate', params.fromDate);
+    if (params?.toDate) q.set('toDate', params.toDate);
+    if (params?.status) q.set('status', params.status);
+    if (params?.source) q.set('source', params.source);
+    if (params?.appointmentId) q.set('appointmentId', params.appointmentId);
+    const qs = q.toString();
+    const response = await this.client.get(`/payments${qs ? `?${qs}` : ''}`);
+    return response.data;
+  }
+
+  async createPayment(data: {
+    patientId: string;
+    appointmentId?: string;
+    amount: number;
+    method: 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER';
+    source: 'PRIVATE' | 'INSURANCE';
+  }) {
+    const response = await this.client.post('/payments', data);
+    return response.data;
+  }
+
+  async patchPaymentStatus(id: string, data: { status: 'PAID' | 'CANCELED' }) {
+    const response = await this.client.patch(`/payments/${id}/status`, data);
+    return response.data;
+  }
+
+  async getDashboardSummary(): Promise<{
+    professionalsActive: number;
+    appointmentsToday: number;
+    appointmentsPending: number;
+    monthlyIncome: number;
+    monthlyIncomeMomPercent: number | null;
+    attendanceRate: number;
+    recentActivity: Array<{
+      id: string;
+      type: string;
+      title: string;
+      message: string;
+      createdAt: string;
+    }>;
+    upcomingAppointments: Array<{
+      id: string;
+      startTime: string;
+      endTime: string;
+      status: string;
+      patientName: string;
+      professionalName: string;
+      reason: string | null;
+    }>;
+    alerts: {
+      noShowRateHigh: boolean;
+      pendingAppointmentsHigh: boolean;
+    };
+    nextUpcoming: {
+      id: string;
+      startTime: string;
+      patientName: string;
+      professionalName: string;
+      reason: string | null;
+      status: string;
+      minutesUntil: number;
+    } | null;
+  }> {
+    const response = await this.client.get('/dashboard/summary');
+    return response.data;
+  }
+
   // --- Pacientes ---
 
   /**
@@ -544,12 +635,17 @@ class ApiClient {
    * Buscar pacientes por DNI y/o email (OWNER/ADMIN). Por defecto solo activos.
    */
   async searchPatients(params: {
+    medicalRecordNumber?: number;
     dni?: string;
+    name?: string;
     email?: string;
     includeInactive?: boolean;
   }) {
     const q = new URLSearchParams();
+    if (params.medicalRecordNumber != null)
+      q.set('medicalRecordNumber', String(params.medicalRecordNumber));
     if (params.dni) q.set('dni', params.dni);
+    if (params.name) q.set('name', params.name);
     if (params.email) q.set('email', params.email);
     if (params.includeInactive === true) q.set('includeInactive', 'true');
     const response = await this.client.get(`/patients/search?${q}`);
@@ -558,14 +654,26 @@ class ApiClient {
 
   /**
    * Crear paciente (OWNER/ADMIN).
+   * Incluye datos personales ampliados y obra social opcional.
    */
   async createPatient(data: {
     firstName: string;
     lastName: string;
+    medicalRecordNumber?: number;
     dni?: string;
     phone?: string;
     email?: string;
+    birthDate?: string;
+    gender?: string;
+    address?: string;
+    city?: string;
+    province?: string;
+    department?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
     notes?: string;
+    healthInsuranceId?: string;
+    affiliateNumber?: string;
   }) {
     const response = await this.client.post('/patients', data);
     return response.data;
@@ -579,10 +687,20 @@ class ApiClient {
     data: {
       firstName?: string;
       lastName?: string;
+      medicalRecordNumber?: number;
       dni?: string;
       phone?: string;
       email?: string;
-    }
+      birthDate?: string;
+      gender?: string;
+      address?: string;
+      city?: string;
+      province?: string;
+      department?: string;
+      emergencyContactName?: string;
+      emergencyContactPhone?: string;
+      notes?: string;
+    },
   ) {
     const response = await this.client.patch(`/patients/${id}`, data);
     return response.data;
@@ -601,6 +719,224 @@ class ApiClient {
    */
   async activatePatient(id: string) {
     const response = await this.client.patch(`/patients/${id}/activate`);
+    return response.data;
+  }
+
+  // --- Obras Sociales del Paciente (Patient Insurances) ---
+
+  /**
+   * Obtener obras sociales asignadas a un paciente.
+   */
+  async getPatientInsurances(patientId: string) {
+    const response = await this.client.get(`/patients/${patientId}/insurances`);
+    return response.data;
+  }
+
+  /**
+   * Agregar obra social a un paciente. OWNER/ADMIN.
+   */
+  async addPatientInsurance(
+    patientId: string,
+    data: { healthInsuranceId: string; affiliateNumber: string; isPrimary?: boolean },
+  ) {
+    const response = await this.client.post(
+      `/patients/${patientId}/insurances`,
+      data,
+    );
+    return response.data;
+  }
+
+  /**
+   * Actualizar obra social del paciente. OWNER/ADMIN.
+   */
+  async updatePatientInsurance(
+    patientId: string,
+    insuranceId: string,
+    data: { affiliateNumber?: string; isPrimary?: boolean },
+  ) {
+    const response = await this.client.patch(
+      `/patients/${patientId}/insurances/${insuranceId}`,
+      data,
+    );
+    return response.data;
+  }
+
+  /**
+   * Desactivar obra social del paciente. OWNER/ADMIN.
+   */
+  async deactivatePatientInsurance(patientId: string, insuranceId: string) {
+    const response = await this.client.patch(
+      `/patients/${patientId}/insurances/${insuranceId}/deactivate`,
+    );
+    return response.data;
+  }
+
+  // --- Obras Sociales (Health Insurances) - CRUD clínica ---
+
+  /**
+   * Listar obras sociales de la clínica.
+   */
+  async getHealthInsurances(includeInactive?: boolean) {
+    const q = includeInactive ? '?includeInactive=true' : '';
+    const response = await this.client.get(`/health-insurances${q}`);
+    return response.data;
+  }
+
+  /**
+   * Crear obra social. OWNER/ADMIN.
+   */
+  async createHealthInsurance(data: {
+    name: string;
+    code?: string;
+    isActive?: boolean;
+  }) {
+    const response = await this.client.post('/health-insurances', data);
+    return response.data;
+  }
+
+  /**
+   * Actualizar obra social. OWNER/ADMIN.
+   */
+  async updateHealthInsurance(
+    id: string,
+    data: { name?: string; code?: string; isActive?: boolean },
+  ) {
+    const response = await this.client.patch(`/health-insurances/${id}`, data);
+    return response.data;
+  }
+
+  /**
+   * Desactivar obra social (soft delete). OWNER/ADMIN.
+   */
+  async deleteHealthInsurance(id: string) {
+    const response = await this.client.delete(`/health-insurances/${id}`);
+    return response.data;
+  }
+
+  // --- Historia Clínica (Medical Records) ---
+
+  /**
+   * Obtener historial clínico de un paciente.
+   */
+  async getMedicalRecordsByPatient(patientId: string) {
+    const response = await this.client.get(
+      `/medical-records/patient/${patientId}`,
+    );
+    return response.data;
+  }
+
+  /**
+   * Obtener detalle de un registro médico.
+   */
+  async getMedicalRecordById(id: string) {
+    const response = await this.client.get(`/medical-records/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Crear registro médico.
+   * consultationDate: obligatorio si no hay appointmentId (YYYY-MM-DD).
+   * professionalId: obligatorio para OWNER/ADMIN cuando no hay appointmentId.
+   * healthInsuranceId: opcional; si no se envía, usa la obra social primaria del paciente.
+   */
+  async createMedicalRecord(data: {
+    patientId: string;
+    appointmentId?: string;
+    professionalId?: string;
+    consultationDate?: string; // YYYY-MM-DD
+    healthInsuranceId?: string;
+    reason?: string;
+    symptoms?: string;
+    diagnosis?: string;
+    treatment?: string;
+    notes?: string;
+  }) {
+    const response = await this.client.post('/medical-records', data);
+    return response.data;
+  }
+
+  /**
+   * Actualizar registro médico.
+   */
+  async updateMedicalRecord(
+    id: string,
+    data: {
+      reason?: string;
+      symptoms?: string;
+      diagnosis?: string;
+      treatment?: string;
+      notes?: string;
+    },
+  ) {
+    const response = await this.client.patch(`/medical-records/${id}`, data);
+    return response.data;
+  }
+
+  /**
+   * Eliminar registro médico (soft delete).
+   */
+  async deleteMedicalRecord(id: string) {
+    const response = await this.client.delete(`/medical-records/${id}`);
+    return response.data;
+  }
+
+  /**
+   * Listar archivos de un registro médico.
+   */
+  async getMedicalRecordFiles(medicalRecordId: string) {
+    const response = await this.client.get(
+      `/medical-records/${medicalRecordId}/files`,
+    );
+    return response.data;
+  }
+
+  /**
+   * Subir archivo PDF a un registro médico.
+   */
+  async uploadMedicalRecordFile(
+    medicalRecordId: string,
+    file: File,
+  ): Promise<{
+    id: string;
+    fileName: string;
+    fileSize: number;
+    createdAt: string;
+  }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.client.post(
+      `/medical-records/${medicalRecordId}/files`,
+      formData,
+    );
+    return response.data;
+  }
+
+  /**
+   * Obtener URL para ver/descargar archivo (requiere auth, usar con fetch).
+   */
+  getMedicalRecordFileUrl(fileId: string): string {
+    const base = this.client.defaults.baseURL || '';
+    return `${base}/medical-records/files/${fileId}/content`;
+  }
+
+  /**
+   * Obtener blob del archivo para ver o descargar.
+   */
+  async getMedicalRecordFileBlob(fileId: string): Promise<Blob> {
+    const response = await this.client.get(
+      `/medical-records/files/${fileId}/content`,
+      { responseType: 'blob' },
+    );
+    return response.data;
+  }
+
+  /**
+   * Eliminar archivo de un registro médico.
+   */
+  async deleteMedicalRecordFile(fileId: string) {
+    const response = await this.client.delete(
+      `/medical-records/files/${fileId}`,
+    );
     return response.data;
   }
 
@@ -636,6 +972,17 @@ class ApiClient {
     dni?: string;
     phone?: string;
     email?: string;
+    birthDate?: string;
+    gender?: string;
+    address?: string;
+    city?: string;
+    province?: string;
+    department?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone?: string;
+    notes?: string;
+    healthInsuranceId?: string;
+    affiliateNumber?: string;
   }) {
     const response = await this.client.post('/public/patients/identify', data);
     return response.data;
@@ -669,6 +1016,7 @@ class ApiClient {
     date: string;
     startTime: string;
     endTime: string;
+    reason?: string;
     notes?: string;
   }) {
     const response = await this.client.post('/public/appointments/request', data);

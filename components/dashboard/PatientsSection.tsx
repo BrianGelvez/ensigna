@@ -25,6 +25,7 @@ export interface PatientListItem {
   id: string;
   firstName: string;
   lastName: string;
+  medicalRecordNumber?: number | null;
   dni?: string | null;
   phone?: string | null;
   email?: string | null;
@@ -60,6 +61,9 @@ export default function PatientsSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [sortByMedicalRecord, setSortByMedicalRecord] = useState<
+    'none' | 'asc' | 'desc'
+  >('none');
 
   const canCreate = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
@@ -117,6 +121,18 @@ export default function PatientsSection() {
       .finally(() => setLoading(false));
   };
 
+  const sortedItems = useMemo(() => {
+    const items = data?.items ?? [];
+    if (sortByMedicalRecord === 'none') return items;
+    const copy = [...items];
+    copy.sort((a, b) => {
+      const aValue = a.medicalRecordNumber ?? Number.MAX_SAFE_INTEGER;
+      const bValue = b.medicalRecordNumber ?? Number.MAX_SAFE_INTEGER;
+      return sortByMedicalRecord === 'asc' ? aValue - bValue : bValue - aValue;
+    });
+    return copy;
+  }, [data?.items, sortByMedicalRecord]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -172,9 +188,31 @@ export default function PatientsSection() {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por nombre, DNI o email..."
+              placeholder="Buscar por nombre, DNI, email o N° HC..."
               className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Orden N° HC:</span>
+            <button
+              type="button"
+              onClick={() =>
+                setSortByMedicalRecord((current) =>
+                  current === 'none'
+                    ? 'asc'
+                    : current === 'asc'
+                      ? 'desc'
+                      : 'none',
+                )
+              }
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+            >
+              {sortByMedicalRecord === 'none'
+                ? 'Sin ordenar'
+                : sortByMedicalRecord === 'asc'
+                  ? 'Ascendente'
+                  : 'Descendente'}
+            </button>
           </div>
         </div>
 
@@ -205,7 +243,7 @@ export default function PatientsSection() {
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {data.items.map((patient) => {
+              {sortedItems.map((patient) => {
                 const inactive = patient.isActive === false;
                 return (
                   <motion.button
@@ -222,6 +260,11 @@ export default function PatientsSection() {
                       <p className={`font-medium truncate ${inactive ? 'text-gray-600' : 'text-gray-900'}`}>
                         {patient.lastName}, {patient.firstName}
                       </p>
+                    {patient.medicalRecordNumber != null && (
+                      <p className="mt-1 text-xs font-medium text-indigo-700">
+                        N° HC {patient.medicalRecordNumber}
+                      </p>
+                    )}
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500">
                       {patient.dni && (
                         <span className="inline-flex items-center gap-1">

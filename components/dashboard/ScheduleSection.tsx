@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar as CalendarIcon,
@@ -38,6 +39,7 @@ export interface AppointmentItem {
   endTime: string;
   status: string;
   patient: { firstName: string; lastName: string };
+  reason?: string | null;
   notes?: string | null;
 }
 
@@ -165,6 +167,15 @@ export default function ScheduleSection() {
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bookingSlot, setBookingSlot] = useState<SlotItem | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<
+    string | null
+  >(null);
+  const bookIntentHandled = useRef(false);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const { start: startDate, end: endDate, weekDates } = useMemo(
     () => getWeekRange(weekAnchor),
@@ -234,6 +245,49 @@ export default function ScheduleSection() {
     return () => { cancelled = true; };
   }, [selectedProfessionalId, startDate, endDate, isStaff, refreshKey]);
 
+  useEffect(() => {
+    if (searchParams.get('book') !== '1') {
+      bookIntentHandled.current = false;
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!canBook || searchParams.get('book') !== '1') return;
+    if (bookIntentHandled.current) return;
+    if (loading) return;
+    if (!isStaff && !selectedProfessionalId) return;
+
+    let first: SlotItem | null = null;
+    for (const d of weekDates) {
+      const arr = slotsByDate[d] ?? [];
+      if (arr.length) {
+        first = arr[0];
+        break;
+      }
+    }
+    if (first) {
+      setBookingSlot(first);
+      setBookingSuccess(null);
+    }
+    bookIntentHandled.current = true;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('book');
+    const q = params.toString();
+    const base = pathname || '/dashboard/agenda';
+    router.replace(q ? `${base}?${q}` : base, { scroll: false });
+  }, [
+    canBook,
+    searchParams,
+    loading,
+    selectedProfessionalId,
+    isStaff,
+    weekDates,
+    slotsByDate,
+    router,
+    pathname,
+  ]);
+
   const sortedDates = useMemo(() => {
     const allDates = new Set([
       ...Object.keys(slotsByDate),
@@ -259,10 +313,6 @@ export default function ScheduleSection() {
   };
 
   const goThisWeek = () => setWeekAnchor(new Date());
-
-  const [bookingSlot, setBookingSlot] = useState<SlotItem | null>(null);
-  const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
 
   const handleSlotClick = (slot: SlotItem) => {
     if (!canBook) return;
@@ -501,7 +551,11 @@ export default function ScheduleSection() {
                                 type="button"
                                 onClick={() => handleAppointmentClick(item.data.id)}
                                 className={`w-full text-center px-1.5 py-2 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium ${colors!.bg} ${colors!.text} border ${colors!.border} shadow-sm min-h-[40px] sm:min-h-0 flex flex-col items-center justify-center hover:opacity-90 active:scale-[0.98] transition-all touch-manipulation cursor-pointer`}
-                                title={`${item.data.patient.firstName} ${item.data.patient.lastName} · ${appointmentStatusLabel(item.data.status)} — Tocá para ver detalle`}
+                                title={
+                                  item.data.reason
+                                    ? `${item.data.patient.firstName} ${item.data.patient.lastName} · Motivo: ${item.data.reason} — Tocá para ver detalle`
+                                    : `${item.data.patient.firstName} ${item.data.patient.lastName} · ${appointmentStatusLabel(item.data.status)} — Tocá para ver detalle`
+                                }
                               >
                                 <span className="font-semibold">{item.data.startTime}</span>
                                 <span className="opacity-90 truncate w-full max-w-full" title={`${item.data.patient.firstName} ${item.data.patient.lastName}`}>
@@ -567,7 +621,11 @@ export default function ScheduleSection() {
                             type="button"
                             onClick={() => handleAppointmentClick(item.data.id)}
                             className={`inline-flex items-center gap-2 px-4 py-3 sm:py-2.5 rounded-xl border ${listColors!.border} ${listColors!.bg} ${listColors!.text} min-h-[48px] sm:min-h-0 hover:opacity-90 active:scale-[0.98] transition-all touch-manipulation cursor-pointer text-left`}
-                            title={`${item.data.patient.firstName} ${item.data.patient.lastName} — Tocá para ver detalle`}
+                            title={
+                              item.data.reason
+                                ? `${item.data.patient.firstName} ${item.data.patient.lastName} · Motivo: ${item.data.reason} — Tocá para ver detalle`
+                                : `${item.data.patient.firstName} ${item.data.patient.lastName} — Tocá para ver detalle`
+                            }
                           >
                             <Clock className="w-4 h-4 shrink-0 opacity-80" />
                             <span className="font-medium">{item.data.startTime} – {item.data.endTime}</span>

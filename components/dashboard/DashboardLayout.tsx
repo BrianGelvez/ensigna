@@ -21,6 +21,7 @@ import {
   Sparkles,
   BarChart3,
   Wallet,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/lib/api";
@@ -92,6 +93,13 @@ const navItems: NavItem[] = [
     icon: <Users className="w-5 h-5" />,
     href: "/dashboard/patients",
     roles: ["OWNER", "ADMIN", "STAFF"],
+  },
+  {
+    id: "conversations",
+    label: "Conversaciones",
+    icon: <MessageCircle className="w-5 h-5" />,
+    href: "/dashboard/conversaciones",
+    roles: ["OWNER", "ADMIN"],
   },
   {
     id: "finanzas",

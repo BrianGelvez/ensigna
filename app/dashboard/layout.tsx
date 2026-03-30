@@ -17,6 +17,7 @@ function DashboardRouteLayoutInner({
   const pathSectionMap: Record<string, string> = {
     '/dashboard/agenda': 'schedule',
     '/dashboard/patients': 'patients',
+    '/dashboard/conversaciones': 'conversations',
     '/dashboard/finanzas': 'finanzas',
     '/dashboard/reports': 'reports',
   };

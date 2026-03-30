@@ -1084,6 +1084,44 @@ class ApiClient {
     const response = await this.client.patch('/notifications/read-all');
     return response.data;
   }
+
+  // --- Historial de conversaciones (chat web + WhatsApp) — OWNER / ADMIN ---
+
+  async getMessageConversations(channel?: 'whatsapp' | 'web') {
+    const q = channel ? `?channel=${encodeURIComponent(channel)}` : '';
+    const response = await this.client.get(`/messages/conversations${q}`);
+    return response.data as Array<{
+      id: string;
+      channel: string;
+      externalId: string;
+      patientDni: string | null;
+      createdAt: string;
+      updatedAt: string;
+      _count: { messages: number };
+    }>;
+  }
+
+  async getMessageConversationById(id: string) {
+    const response = await this.client.get(`/messages/conversations/${id}`);
+    return response.data as {
+      id: string;
+      channel: string;
+      externalId: string;
+      patientDni: string | null;
+      createdAt: string;
+      updatedAt: string;
+      messages: Array<{
+        id: string;
+        conversationId: string;
+        direction: string;
+        content: string;
+        type: string;
+        channel: string;
+        meta: Record<string, unknown> | null;
+        createdAt: string;
+      }>;
+    };
+  }
 }
 
 export const apiClient = new ApiClient();

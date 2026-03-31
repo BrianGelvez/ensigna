@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api';
+import DashboardCard from './DashboardCard';
 
 type DashboardSummary = Awaited<ReturnType<typeof apiClient.getDashboardSummary>>;
 
@@ -30,42 +31,9 @@ interface StatCardProps {
   value: string;
   icon: React.ReactNode;
   color: string;
-  delay?: number;
+  href?: string;
   /** Texto secundario bajo el valor (p. ej. variación % ingresos) */
   trend?: { text: string; className: string };
-}
-
-function StatCard({
-  title,
-  value,
-  icon,
-  color,
-  delay = 0,
-  trend,
-}: StatCardProps) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-gray-200 transition-all duration-300"
-    >
-      <div className="flex items-start justify-between">
-        <div className="min-w-0 pr-2">
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
-          {trend ? (
-            <p className={`mt-1.5 text-sm ${trend.className}`}>{trend.text}</p>
-          ) : null}
-        </div>
-        <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}
-        >
-          {icon}
-        </div>
-      </div>
-    </motion.div>
-  );
 }
 
 function formatRelativeTime(iso: string): string {
@@ -220,6 +188,10 @@ export default function OverviewSection() {
   };
 
   const isStaff = user?.role === 'STAFF';
+  const go = (href: string) => {
+    console.log('Dashboard click:', href);
+    router.push(href);
+  };
 
   const incomeMomTrend = summary ? monthlyIncomeTrend(summary) : undefined;
 
@@ -231,12 +203,14 @@ export default function OverviewSection() {
             value: String(summary.appointmentsToday),
             icon: <Calendar className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+            href: '/dashboard/agenda?filter=hoy',
           },
           {
             title: 'Pendientes',
             value: String(summary.appointmentsPending),
             icon: <Clock className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-amber-500 to-amber-600',
+            href: '/dashboard/agenda?estado=pendiente_confirmacion',
           },
           {
             title: 'Ingresos mensuales',
@@ -244,18 +218,21 @@ export default function OverviewSection() {
             icon: <Wallet className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-teal-500 to-teal-600',
             trend: incomeMomTrend,
+            href: '/dashboard/finanzas',
           },
           {
             title: 'Tasa asistencia (7 días)',
             value: `${summary.attendanceRate}%`,
             icon: <Activity className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-purple-500 to-purple-600',
+            href: '/dashboard/reports',
           },
           {
             title: 'Profesionales activos',
             value: String(summary.professionalsActive),
             icon: <Users className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-blue-500 to-blue-600',
+            href: '/dashboard?section=team',
           },
         ]
       : [
@@ -264,24 +241,28 @@ export default function OverviewSection() {
             value: String(summary.professionalsActive),
             icon: <Users className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-blue-500 to-blue-600',
+            href: '/dashboard?section=team',
           },
           {
             title: 'Turnos hoy',
             value: String(summary.appointmentsToday),
             icon: <Calendar className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
+            href: '/dashboard/agenda?filter=hoy',
           },
           {
             title: 'Pendientes',
             value: String(summary.appointmentsPending),
             icon: <Clock className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-amber-500 to-amber-600',
+            href: '/dashboard/agenda?estado=pendiente_confirmacion',
           },
           {
             title: 'Tasa asistencia (7 días)',
             value: `${summary.attendanceRate}%`,
             icon: <Activity className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-purple-500 to-purple-600',
+            href: '/dashboard/reports',
           },
           {
             title: 'Ingresos mensuales',
@@ -289,6 +270,7 @@ export default function OverviewSection() {
             icon: <Wallet className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-teal-500 to-teal-600',
             trend: incomeMomTrend,
+            href: '/dashboard/finanzas',
           },
         ]
     : [];
@@ -330,7 +312,21 @@ export default function OverviewSection() {
                     : 'Tu agenda y próximos turnos.'}
               </p>
               {summary?.nextUpcoming && (
-                <div className="mt-4 inline-flex flex-col sm:flex-row sm:items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 text-sm backdrop-blur-sm border border-white/20 max-w-xl">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    go(`/dashboard/agenda?appointmentId=${summary.nextUpcoming?.id}`)
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      go(`/dashboard/agenda?appointmentId=${summary.nextUpcoming?.id}`);
+                    }
+                  }}
+                  className="mt-4 inline-flex flex-col sm:flex-row sm:items-center gap-2 rounded-2xl bg-white/15 px-4 py-3 text-sm backdrop-blur-sm border border-white/20 max-w-xl cursor-pointer transition-all hover:scale-[1.01] hover:bg-white/20"
+                  title="Ver detalles"
+                >
                   <span className="font-semibold text-white flex items-center gap-2">
                     <Clock className="w-4 h-4 shrink-0" />
                     Próximo turno {countdownLabel(summary.nextUpcoming.minutesUntil)}
@@ -395,7 +391,7 @@ export default function OverviewSection() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {stats.map((stat, index) => (
-            <StatCard key={stat.title} {...stat} delay={index * 0.1} />
+            <DashboardCard key={stat.title} {...stat} delay={index * 0.1} />
           ))}
         </div>
       )}
@@ -466,7 +462,30 @@ export default function OverviewSection() {
           ) : (
             <div className="space-y-4 max-h-[320px] overflow-y-auto pr-1">
               {summary.recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3">
+                <div
+                  key={activity.id}
+                  role="button"
+                  tabIndex={0}
+                  title="Ver detalles"
+                  onClick={() => {
+                    const href =
+                      activity.type.startsWith('APPOINTMENT_')
+                        ? '/dashboard/agenda'
+                        : '/dashboard/reports';
+                    go(href);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      const href =
+                        activity.type.startsWith('APPOINTMENT_')
+                          ? '/dashboard/agenda'
+                          : '/dashboard/reports';
+                      go(href);
+                    }
+                  }}
+                  className="flex items-start gap-3 p-2 -m-2 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+                >
                   <div className="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100">
                     {activityIcon(activity.type)}
                   </div>

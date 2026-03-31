@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState, useEffect, useCallback } from "react";
+import { ReactNode, useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/lib/api";
+import { useNotificationsSocket } from "@/hooks/useNotificationsSocket";
 import {
   NotificationDropdown,
   type NotificationItem,
@@ -174,6 +175,51 @@ export default function DashboardLayout({
       .then((res) => setNotificationUnreadCount(res.unreadCount))
       .catch(() => {});
   }, []);
+
+  // Realtime notifications (Socket.IO)
+  useNotificationsSocket(
+    user?.id ?? null,
+    useMemo(
+      () => ({
+        onNewNotification: (n: NotificationItem) => {
+          if (!n?.id) return;
+          setNotifications((prev) => {
+            const exists = prev.some((x) => x.id === n.id);
+            if (exists) return prev;
+            return [n, ...prev].slice(0, 50);
+          });
+          if (!n.readAt) {
+            setNotificationUnreadCount((c) => c + 1);
+          }
+        },
+        onNotificationRead: (payload: any) => {
+          if (payload?.all === true) {
+            setNotifications((prev) =>
+              prev.map((x) => ({ ...x, readAt: x.readAt ?? new Date().toISOString() })),
+            );
+            setNotificationUnreadCount(0);
+            return;
+          }
+          const id = payload?.id;
+          const readAt = payload?.readAt ? String(payload.readAt) : new Date().toISOString();
+          if (!id) return;
+          setNotifications((prev) => {
+            let decremented = false;
+            const next = prev.map((x) => {
+              if (x.id !== id) return x;
+              if (!x.readAt) decremented = true;
+              return { ...x, readAt };
+            });
+            if (decremented) {
+              setNotificationUnreadCount((c) => Math.max(0, c - 1));
+            }
+            return next;
+          });
+        },
+      }),
+      [],
+    ),
+  );
 
   // Update time every minute
   useEffect(() => {

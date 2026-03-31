@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -15,9 +15,11 @@ import {
   User,
   ArrowDownLeft,
   ArrowUpRight,
+  Send,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/lib/api";
+import { useConversationSocket } from "@/hooks/useConversationSocket";
 
 type ChannelFilter = "all" | "whatsapp" | "web";
 
@@ -87,6 +89,9 @@ export default function ConversationsSection() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [mobileShowThread, setMobileShowThread] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState<null | "sending" | "failed">(null);
+  const threadRef = useRef<HTMLDivElement | null>(null);
 
   const canAccess = user?.role === "OWNER" || user?.role === "ADMIN";
 
@@ -157,6 +162,46 @@ export default function ConversationsSection() {
       cancelled = true;
     };
   }, [selectedId, canAccess]);
+
+  useConversationSocket(
+    selectedId,
+    useCallback(
+      (msg: unknown) => {
+        // msg esperado: Message del backend
+        if (!msg || typeof msg !== "object") return;
+        const m = msg as Partial<MessageRow> & { conversationId?: string };
+        if (!m.id || !m.createdAt || !m.content) return;
+        setDetail((prev) => {
+          if (!prev || prev.id !== selectedId) return prev;
+          const exists = prev.messages.some((x) => x.id === m.id);
+          if (exists) return prev;
+          return {
+            ...prev,
+            messages: [
+              ...prev.messages,
+              {
+                id: String(m.id),
+                direction: String(m.direction ?? "outbound"),
+                content: String(m.content ?? ""),
+                type: String(m.type ?? "text"),
+                channel: String(m.channel ?? prev.channel),
+                meta: (m.meta as any) ?? null,
+                createdAt: String(m.createdAt),
+              },
+            ],
+          };
+        });
+      },
+      [selectedId],
+    ),
+  );
+
+  useEffect(() => {
+    // autoscroll al final
+    const el = threadRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [detail?.messages.length, selectedId, detailLoading]);
 
   const filteredList = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -417,7 +462,10 @@ export default function ConversationsSection() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-[linear-gradient(180deg,#fafafa_0%,#ffffff_120px)]">
+              <div
+                ref={threadRef}
+                className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-[linear-gradient(180deg,#fafafa_0%,#ffffff_120px)]"
+              >
                 {detailLoading && (
                   <div className="flex justify-center py-12">
                     <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
@@ -429,6 +477,14 @@ export default function ConversationsSection() {
                 {!detailLoading &&
                   detail?.messages.map((m, idx) => {
                     const inbound = m.direction === "inbound";
+                    const rendered =
+                      m.type === "template" &&
+                      m.meta &&
+                      typeof m.meta === "object" &&
+                      "renderedText" in m.meta &&
+                      typeof (m.meta as any).renderedText === "string"
+                        ? String((m.meta as any).renderedText)
+                        : m.content;
                     const slug =
                       m.meta &&
                       typeof m.meta === "object" &&
@@ -471,7 +527,7 @@ export default function ConversationsSection() {
                             </span>
                           </div>
                           <p className="text-[15px] leading-relaxed whitespace-pre-wrap break-words">
-                            {m.content}
+                            {rendered}
                           </p>
                           {slug && (
                             <p
@@ -493,6 +549,64 @@ export default function ConversationsSection() {
                       Esta conversación no tiene mensajes guardados.
                     </p>
                   )}
+              </div>
+
+              {/* Composer */}
+              <div className="shrink-0 border-t border-gray-100 p-3 sm:p-4 bg-white">
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!selectedId) return;
+                    const text = draft.trim();
+                    if (!text) return;
+                    setSending("sending");
+                    try {
+                      await apiClient.sendManualConversationMessage(selectedId, text);
+                      setDraft("");
+                      setSending(null);
+                    } catch {
+                      setSending("failed");
+                      setTimeout(() => setSending(null), 2500);
+                    }
+                  }}
+                  className="flex items-end gap-2"
+                >
+                  <div className="flex-1">
+                    <input
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder="Escribir mensaje…"
+                      className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400"
+                      disabled={detail?.channel !== "whatsapp" || sending === "sending"}
+                    />
+                    {detail?.channel !== "whatsapp" && (
+                      <p className="text-[11px] text-gray-400 mt-1 px-1">
+                        Envío manual disponible solo para WhatsApp.
+                      </p>
+                    )}
+                    {sending === "failed" && (
+                      <p className="text-[11px] text-red-600 mt-1 px-1">
+                        No se pudo enviar. Revisá que el número esté permitido por Meta.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 disabled:opacity-50"
+                    disabled={
+                      !draft.trim() ||
+                      sending === "sending" ||
+                      detail?.channel !== "whatsapp"
+                    }
+                  >
+                    {sending === "sending" ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    Enviar
+                  </button>
+                </form>
               </div>
             </>
           )}

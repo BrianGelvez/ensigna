@@ -1122,6 +1122,14 @@ class ApiClient {
       }>;
     };
   }
+
+  async sendManualConversationMessage(conversationId: string, message: string) {
+    const response = await this.client.post(
+      `/messages/conversations/${conversationId}/send-message`,
+      { message },
+    );
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();

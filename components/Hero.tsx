@@ -8,9 +8,9 @@ const clinicSlug = process.env.NEXT_PUBLIC_CLINIC_SLUG || 'consultorio-ensigna';
 
 export default function Hero() {
   return (
-    <section className="relative min-h-screen flex flex-col items-center justify-center bg-white pt-36 md:pt-24 pb-16 overflow-hidden w-full">
+    <section className="relative min-h-screen flex flex-col items-center justify-center ensigna-page-bg pt-36 md:pt-24 pb-16 overflow-hidden w-full">
       {/* Background gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-red-50/40 via-white to-blue-50/20"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-red-50/50 via-[var(--ensigna-background)] to-rose-50/30" />
 
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -36,7 +36,7 @@ export default function Hero() {
             repeat: Infinity,
             ease: 'easeInOut',
           }}
-          className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-blue-200/20 rounded-full blur-3xl"
+          className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-red-300/15 rounded-full blur-3xl"
         />
       </div>
 
@@ -60,12 +60,12 @@ export default function Hero() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extrabold text-gray-900 mb-6 leading-tight tracking-tight"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extrabold text-[var(--ensigna-text)] mb-6 leading-tight tracking-tight"
           >
             Cuidamos tu salud con
             <br />
             <span className="relative inline-block">
-              <span className="relative z-10 text-red-600">excelencia médica</span>
+              <span className="relative z-10 text-ensigna-primary">excelencia médica</span>
               <motion.span
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
@@ -81,9 +81,9 @@ export default function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.5 }}
-            className="text-lg sm:text-xl md:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed px-4"
+            className="text-lg sm:text-xl md:text-2xl text-[var(--ensigna-text-secondary)] mb-12 max-w-3xl mx-auto leading-relaxed px-4"
           >
-            En <strong className="text-gray-900">ENSIGNA</strong> combinamos la
+            En <strong className="text-[var(--ensigna-text)]">ENSIGNA</strong> combinamos la
             experiencia médica con tecnología de vanguardia. Un espacio diseñado
             para tu bienestar, donde cada atención cuenta.
           </motion.p>
@@ -97,21 +97,21 @@ export default function Hero() {
           >
             <Link
               href={`/public/${clinicSlug}/agenda`}
-              className="group px-8 py-4 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all duration-300 font-semibold text-base sm:text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 flex items-center justify-center space-x-2 min-w-[200px]"
+              className="group btn-ensigna-primary !px-8 !py-4 text-base sm:text-lg min-w-[200px] shadow-ensigna-red"
             >
               <Calendar className="w-5 h-5" />
-              <span>Solicitar turno</span>
+              <span>Reservar turno</span>
             </Link>
             <Link
               href="#sobre-nosotros"
-              className="group px-8 py-4 bg-white text-red-600 border-2 border-red-600 rounded-xl hover:bg-red-50 transition-all duration-300 font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 min-w-[200px]"
+              className="group btn-ensigna-secondary !px-8 !py-4 text-base sm:text-lg min-w-[200px] !border-2 !border-ensigna-primary !text-ensigna-primary hover:!bg-red-50/80"
             >
               <Play className="w-5 h-5" />
               <span>Conocer más</span>
             </Link>
             <Link
               href="#ubicacion"
-              className="group px-8 py-4 bg-white text-red-600 border-2 border-red-600 rounded-xl hover:bg-red-50 transition-all duration-300 font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl flex items-center justify-center space-x-2 min-w-[200px]"
+              className="group btn-ensigna-secondary !px-8 !py-4 text-base sm:text-lg min-w-[200px] !border-2 !border-ensigna-primary !text-ensigna-primary hover:!bg-red-50/80"
             >
               <MapPin className="w-5 h-5" />
               <span>Dónde estamos</span>
@@ -149,16 +149,16 @@ export default function Hero() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 1 + index * 0.1 }}
-                  whileHover={{ y: -5 }}
-                  className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all"
+                  whileHover={{ y: -4 }}
+                  className="ensigna-glass rounded-[var(--ensigna-radius-lg)] p-6 transition-all duration-200 hover:shadow-ensigna-hover"
                 >
-                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mb-4 mx-auto">
-                    <Icon className="w-6 h-6 text-red-600" />
+                  <div className="w-12 h-12 bg-red-500/15 backdrop-blur-sm rounded-lg flex items-center justify-center mb-4 mx-auto">
+                    <Icon className="w-6 h-6 text-ensigna-primary" />
                   </div>
-                  <h3 className="font-bold text-gray-900 mb-1 text-sm sm:text-base">
+                  <h3 className="font-bold text-[var(--ensigna-text)] mb-1 text-sm sm:text-base">
                     {feature.title}
                   </h3>
-                  <p className="text-xs sm:text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-[var(--ensigna-text-secondary)]">
                     {feature.description}
                   </p>
                 </motion.div>

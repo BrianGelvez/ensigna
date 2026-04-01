@@ -36,7 +36,7 @@ const benefits = [
 
 export default function Benefits() {
   return (
-    <section id="beneficios" className="py-24 bg-white w-full overflow-hidden">
+    <section id="beneficios" className="py-24 ensigna-page-bg w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

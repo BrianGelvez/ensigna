@@ -36,7 +36,7 @@ const services = [
 
 export default function Services() {
   return (
-    <section id="servicios" className="py-24 bg-gradient-to-b from-gray-50 to-white relative overflow-hidden w-full">
+    <section id="servicios" className="py-24 bg-gradient-to-b from-red-50/30 to-[var(--ensigna-background)] relative overflow-hidden w-full">
       {/* Background decoration */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-red-50/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-red-50/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
@@ -69,7 +69,7 @@ export default function Services() {
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 whileHover={{ y: -12, scale: 1.02 }}
-                className="group bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all border border-gray-100 relative overflow-hidden"
+                className="group ensigna-glass rounded-[var(--ensigna-radius-lg)] p-8 transition-all duration-200 hover:shadow-ensigna-hover relative overflow-hidden"
               >
                 {/* Hover effect background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-red-50/0 to-red-50/0 group-hover:from-red-50/50 group-hover:to-transparent transition-all duration-300"></div>

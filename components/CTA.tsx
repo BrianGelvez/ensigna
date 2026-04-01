@@ -17,7 +17,7 @@ export default function CTA({ clinic }: CTAProps) {
   const hasPhone = phone.length > 0;
 
   return (
-    <section className="py-24 bg-gradient-to-br from-red-600 via-red-700 to-red-800 relative overflow-hidden w-full">
+    <section className="py-24 bg-gradient-to-br from-[#E53935] via-[#bf201d] to-[#C62828] relative overflow-hidden w-full shadow-ensigna">
       {/* Background decoration */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-white rounded-full blur-3xl"></div>

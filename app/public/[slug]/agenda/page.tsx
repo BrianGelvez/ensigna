@@ -268,8 +268,8 @@ export default function PublicAgendaPage() {
 
   if (loading || !clinicInfo) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
+      <div className="min-h-screen bg-gradient-to-br from-red-50/80 via-[var(--ensigna-background)] to-rose-50/40 flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-ensigna-primary" />
       </div>
     );
   }
@@ -288,13 +288,13 @@ export default function PublicAgendaPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-4 lg:p-24">
+    <div className="min-h-screen bg-gradient-to-br from-red-50/80 via-[var(--ensigna-background)] to-rose-50/40 p-4 lg:p-24">
       <div className="w-full mx-auto space-y-6">
         {/* Botón para volver a landing */}
         <div className="flex justify-start">
           <Link
             href={`/`}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl ensigna-glass border-0 text-gray-700 font-medium hover:bg-gray-50 transition-colors shadow-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             Volver a inicio
@@ -305,11 +305,11 @@ export default function PublicAgendaPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8"
+          className="ensigna-glass p-6 sm:p-8 shadow-ensigna-hover"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E53935] to-[#C62828] flex items-center justify-center flex-shrink-0">
                 <Building2 className="w-7 h-7 text-white" />
               </div>
               <div>
@@ -327,15 +327,15 @@ export default function PublicAgendaPage() {
           </div>
 
           {/* Selector de profesional - SIEMPRE VISIBLE */}
-          <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-            <label className="block text-sm font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+          <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+            <label className="block text-sm font-semibold text-red-950 mb-3 flex items-center gap-2">
               <Stethoscope className="w-4 h-4" />
               Seleccioná el profesional con el que querés atenderte
             </label>
             <select
               value={selectedProfessionalId || ''}
               onChange={(e) => setSelectedProfessionalId(e.target.value)}
-              className="w-full rounded-xl border-2 border-indigo-200 bg-white px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[48px] text-base"
+              className="w-full rounded-xl border-2 border-red-200 bg-white px-4 py-3 text-gray-900 font-medium focus:ring-2 focus:ring-red-500/30 focus:border-ensigna-primary min-h-[48px] text-base"
             >
               {clinicInfo.professionals.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -345,13 +345,13 @@ export default function PublicAgendaPage() {
               ))}
             </select>
             {selectedProfessional && (
-              <div className="mt-3 flex items-center gap-2 text-sm text-indigo-700">
+              <div className="mt-3 flex items-center gap-2 text-sm text-red-800">
                 <User className="w-4 h-4" />
                 <span className="font-medium">
                   Profesional seleccionado: {selectedProfessional.firstName}{' '}
                   {selectedProfessional.lastName}
                   {selectedProfessional.specialty && (
-                    <span className="text-indigo-600"> - {selectedProfessional.specialty}</span>
+                    <span className="text-ensigna-primary"> - {selectedProfessional.specialty}</span>
                   )}
                 </span>
               </div>
@@ -360,34 +360,34 @@ export default function PublicAgendaPage() {
 
           {/* Datos del paciente */}
           {patientData && (
-            <div className="mt-4 bg-violet-50 rounded-xl p-4 border border-violet-100">
-              <label className="block text-sm font-semibold text-violet-900 mb-3 flex items-center gap-2">
+            <div className="mt-4 bg-rose-50 rounded-xl p-4 border border-rose-100">
+              <label className="block text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Tus datos
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-violet-600 font-medium">Nombre:</span>{' '}
-                  <span className="text-violet-900">
+                  <span className="text-rose-700 font-medium">Nombre:</span>{' '}
+                  <span className="text-gray-900">
                     {patientData.firstName} {patientData.lastName}
                   </span>
                 </div>
                 {patientData.dni && (
                   <div>
-                    <span className="text-violet-600 font-medium">DNI:</span>{' '}
-                    <span className="text-violet-900">{patientData.dni}</span>
+                    <span className="text-rose-700 font-medium">DNI:</span>{' '}
+                    <span className="text-gray-900">{patientData.dni}</span>
                   </div>
                 )}
                 {patientData.phone && (
                   <div>
-                    <span className="text-violet-600 font-medium">Teléfono:</span>{' '}
-                    <span className="text-violet-900">{patientData.phone}</span>
+                    <span className="text-rose-700 font-medium">Teléfono:</span>{' '}
+                    <span className="text-gray-900">{patientData.phone}</span>
                   </div>
                 )}
                 {patientData.email && (
                   <div>
-                    <span className="text-violet-600 font-medium">Email:</span>{' '}
-                    <span className="text-violet-900">{patientData.email}</span>
+                    <span className="text-rose-700 font-medium">Email:</span>{' '}
+                    <span className="text-gray-900">{patientData.email}</span>
                   </div>
                 )}
               </div>
@@ -400,7 +400,7 @@ export default function PublicAgendaPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8"
+          className="ensigna-glass p-6 sm:p-8 shadow-ensigna-hover"
         >
           {/* Navegación de semana */}
           <div className="flex items-center justify-between mb-6">
@@ -438,7 +438,7 @@ export default function PublicAgendaPage() {
 
           {loadingSlots ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mb-3" />
+              <Loader2 className="w-10 h-10 animate-spin text-ensigna-primary mb-3" />
               <p className="text-sm text-gray-600">Cargando horarios disponibles...</p>
             </div>
           ) : (
@@ -451,18 +451,18 @@ export default function PublicAgendaPage() {
                     key={dateStr}
                     className={`border-2 rounded-xl p-4 transition-all ${
                       isToday
-                        ? 'border-indigo-300 bg-indigo-50/50'
+                        ? 'border-red-300 bg-red-50/50'
                         : 'border-gray-200 bg-white'
                     }`}
                   >
                     <h3
                       className={`text-sm font-bold mb-3 ${
-                        isToday ? 'text-indigo-900' : 'text-gray-900'
+                        isToday ? 'text-red-950' : 'text-gray-900'
                       }`}
                     >
                       {formatDateShort(dateStr)}
                       {isToday && (
-                        <span className="ml-2 text-xs font-normal text-indigo-600">(Hoy)</span>
+                        <span className="ml-2 text-xs font-normal text-ensigna-primary">(Hoy)</span>
                       )}
                     </h3>
                     {daySlots.length === 0 ? (
@@ -480,17 +480,17 @@ export default function PublicAgendaPage() {
                                 key={item.id || idx}
                                 className={`w-full px-3 py-2.5 rounded-lg border-2 text-sm font-medium cursor-not-allowed ${
                                   isMyAppointment
-                                    ? 'bg-indigo-100 border-indigo-300 text-indigo-900'
+                                    ? 'bg-red-100 border-red-300 text-red-950'
                                     : 'bg-gray-100 border-gray-300 text-gray-700'
                                 }`}
                               >
                                 <div className="flex items-center gap-1.5">
-                                  <X className={`w-4 h-4 ${isMyAppointment ? 'text-indigo-600' : 'text-gray-500'}`} />
+                                  <X className={`w-4 h-4 ${isMyAppointment ? 'text-ensigna-primary' : 'text-gray-500'}`} />
                                   <span className="flex-1 text-[12px]">
                                     {formatTime(item.startTime)} - {formatTime(item.endTime)}
                                   </span>
                                   {isMyAppointment ? (
-                                    <span className="text-xs font-semibold text-indigo-700">TU TURNO</span>
+                                    <span className="text-xs font-semibold text-red-800">TU TURNO</span>
                                   ) : (
                                     <span className="text-xs text-gray-500">
                                       No disponible
@@ -510,14 +510,14 @@ export default function PublicAgendaPage() {
                                     setSelectedSlot(item as Slot);
                                   }
                                 }}
-                                className="w-full text-left px-3 py-2.5 rounded-lg bg-emerald-50 border-2 border-emerald-200 text-emerald-900 text-sm font-semibold hover:bg-emerald-100 hover:border-emerald-300 transition-all active:scale-[0.98]"
+                                className="w-full text-left px-3 py-2.5 rounded-lg bg-white border-2 border-gray-200 text-[var(--ensigna-text)] text-sm font-semibold hover:bg-red-50/50 hover:border-red-200 transition-all active:scale-[0.98] shadow-sm"
                               >
                                 <div className="flex items-center gap-1.5">
                                   <Clock className="w-4 h-4" />
                                   <span className="text-[12px]">
                                     {formatTime(item.startTime)} - {formatTime(item.endTime)}
                                   </span>
-                                  <span className="ml-auto text-xs font-normal text-emerald-700">
+                                  <span className="ml-auto text-xs font-normal text-[var(--ensigna-text-secondary)]">
                                     Disponible
                                   </span>
                                 </div>
@@ -538,15 +538,15 @@ export default function PublicAgendaPage() {
       {/* Modal de confirmación - Solo para slots disponibles */}
       <AnimatePresence>
         {selectedSlot && selectedSlot.type === 'SLOT' && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ensigna-modal-backdrop">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 sm:p-8 max-w-md w-full"
+              className="ensigna-modal-panel p-6 sm:p-8 max-w-md w-full rounded-[var(--ensigna-radius-lg)]"
             >
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#E53935] to-[#C62828] flex items-center justify-center">
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900">Confirmar turno</h3>
@@ -561,16 +561,16 @@ export default function PublicAgendaPage() {
 
                 {/* Profesional */}
                 {selectedProfessional && (
-                  <div className="bg-indigo-50 rounded-xl p-4 border-2 border-indigo-200">
-                    <p className="text-xs font-semibold text-indigo-600 uppercase mb-1 flex items-center gap-1">
+                  <div className="bg-red-50 rounded-xl p-4 border-2 border-red-200">
+                    <p className="text-xs font-semibold text-ensigna-primary uppercase mb-1 flex items-center gap-1">
                       <Stethoscope className="w-3 h-3" />
                       Profesional
                     </p>
-                    <p className="text-base font-bold text-indigo-900">
+                    <p className="text-base font-bold text-red-950">
                       {selectedProfessional.firstName} {selectedProfessional.lastName}
                     </p>
                     {selectedProfessional.specialty && (
-                      <p className="text-sm text-indigo-700 mt-1">
+                      <p className="text-sm text-red-800 mt-1">
                         {selectedProfessional.specialty}
                       </p>
                     )}
@@ -578,15 +578,15 @@ export default function PublicAgendaPage() {
                 )}
 
                 {/* Fecha y hora */}
-                <div className="bg-emerald-50 rounded-xl p-4 border-2 border-emerald-200">
-                  <p className="text-xs font-semibold text-emerald-600 uppercase mb-2 flex items-center gap-1">
+                <div className="bg-red-50 rounded-xl p-4 border-2 border-red-100">
+                  <p className="text-xs font-semibold text-ensigna-primary uppercase mb-2 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     Fecha y horario
                   </p>
-                  <p className="text-base font-bold text-emerald-900 mb-1">
+                  <p className="text-base font-bold text-red-950 mb-1">
                     {formatDate(selectedSlot.date)}
                   </p>
-                  <p className="text-lg font-bold text-emerald-900">
+                  <p className="text-lg font-bold text-red-950">
                     {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
                   </p>
                 </div>
@@ -602,7 +602,7 @@ export default function PublicAgendaPage() {
                     onChange={(e) => setAppointmentReason(e.target.value.slice(0, 150))}
                     maxLength={150}
                     placeholder="Ej: control, fiebre, chequeo general..."
-                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:ring-2 focus:ring-red-500/30 focus:border-ensigna-primary"
                   />
                   <p className="text-xs text-gray-500 mt-1 text-right">
                     {appointmentReason.length}/150
@@ -626,7 +626,7 @@ export default function PublicAgendaPage() {
                   type="button"
                   onClick={handleRequestAppointment}
                   disabled={submitting}
-                  className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 transition-colors"
+                  className="flex-1 py-3 rounded-xl gradient-red text-white font-semibold hover:brightness-110 disabled:opacity-50 inline-flex items-center justify-center gap-2 transition-colors"
                 >
                   {submitting ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -646,19 +646,19 @@ export default function PublicAgendaPage() {
       {/* Modal de bienvenida / paciente creado */}
       <AnimatePresence>
         {showWelcomeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 ensigna-modal-backdrop">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 sm:p-8 max-w-md w-full"
+              className="ensigna-modal-panel p-6 sm:p-8 max-w-md w-full rounded-[var(--ensigna-radius-lg)]"
             >
               <div className="flex items-center gap-3 mb-6">
                 <div
                   className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                     isNewPatient
                       ? 'bg-gradient-to-br from-emerald-500 to-green-600'
-                      : 'bg-gradient-to-br from-indigo-500 to-violet-600'
+                      : 'bg-gradient-to-br from-[#E53935] to-[#C62828]'
                   }`}
                 >
                   {isNewPatient ? (
@@ -708,7 +708,7 @@ export default function PublicAgendaPage() {
               <button
                 type="button"
                 onClick={() => setShowWelcomeModal(false)}
-                className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors"
+                className="w-full py-3 rounded-xl gradient-red text-white font-semibold hover:brightness-110 transition-colors"
               >
                 Continuar
               </button>
@@ -741,10 +741,10 @@ export default function PublicAgendaPage() {
                   </p>
                   {lastAppointmentInfo && (
                     <div className="bg-emerald-50 rounded-lg p-3 border border-emerald-100 text-xs">
-                      <p className="font-semibold text-emerald-900 mb-1">
+                      <p className="font-semibold text-red-950 mb-1">
                         {lastAppointmentInfo.professionalName}
                       </p>
-                      <p className="text-emerald-700">
+                      <p className="text-[var(--ensigna-text-secondary)]">
                         {formatDate(lastAppointmentInfo.date)} -{' '}
                         {formatTime(lastAppointmentInfo.startTime)} a{' '}
                         {formatTime(lastAppointmentInfo.endTime)}

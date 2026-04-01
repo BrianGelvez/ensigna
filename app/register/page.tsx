@@ -114,7 +114,7 @@ function RegisterPageInner() {
               {...register('email')}
               type="email"
               autoComplete="email"
-              className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 sm:text-sm"
+              className="ensigna-input !py-3 !px-4 sm:text-sm"
               placeholder={
                 isInviteFlow ? 'Email (el de la invitación)' : 'Email'
               }
@@ -131,7 +131,7 @@ function RegisterPageInner() {
               {...register('password')}
               type="password"
               autoComplete="new-password"
-              className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 sm:text-sm"
+              className="ensigna-input !py-3 !px-4 sm:text-sm"
               placeholder="Contraseña (mínimo 8 caracteres)"
             />
             {errors.password && (
@@ -149,7 +149,7 @@ function RegisterPageInner() {
                 {...register('name')}
                 type="text"
                 autoComplete="given-name"
-                className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 sm:text-sm"
+                className="ensigna-input !py-3 !px-4 sm:text-sm"
                 placeholder="Nombre"
               />
               {errors.name && (
@@ -166,7 +166,7 @@ function RegisterPageInner() {
                 {...register('lastName')}
                 type="text"
                 autoComplete="family-name"
-                className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 sm:text-sm"
+                className="ensigna-input !py-3 !px-4 sm:text-sm"
                 placeholder="Apellido"
               />
               {errors.lastName && (
@@ -184,7 +184,7 @@ function RegisterPageInner() {
               {...register('phone')}
               type="tel"
               autoComplete="tel"
-              className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 sm:text-sm"
+              className="ensigna-input !py-3 !px-4 sm:text-sm"
               placeholder="Teléfono (opcional)"
             />
             {errors.phone && (
@@ -198,7 +198,7 @@ function RegisterPageInner() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full flex justify-center items-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full btn-ensigna-primary !py-3"
         >
           {isLoading ? 'Registrando…' : 'Registrarse'}
         </button>
@@ -219,7 +219,7 @@ function RegisterPageInner() {
             <button
               type="button"
               onClick={handleGoogleRegister}
-              className="w-full inline-flex justify-center items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+              className="w-full btn-ensigna-secondary !justify-center !text-sm"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path

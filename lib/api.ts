@@ -515,6 +515,14 @@ class ApiClient {
   // --- Pagos / Finanzas ---
 
   async getPaymentsSummary(): Promise<{
+    todayPatientIncome: number;
+    totalPatientIncome: number;
+    pendingInsurance: number;
+    invoicedInsurance: number;
+    collectedInsurance: number;
+    todayPendingInsurance: number;
+    todayInvoicedInsurance: number;
+    todayCollectedInsurance: number;
     todayIncome: number;
     totalIncome: number;
     pendingIncome: number;
@@ -531,6 +539,9 @@ class ApiClient {
     status?: string;
     source?: string;
     appointmentId?: string;
+    professionalId?: string;
+    healthInsuranceId?: string;
+    insuranceBillingStatus?: 'PENDING' | 'INVOICED' | 'COLLECTED';
   }) {
     const q = new URLSearchParams();
     if (params?.fromDate) q.set('fromDate', params.fromDate);
@@ -538,6 +549,11 @@ class ApiClient {
     if (params?.status) q.set('status', params.status);
     if (params?.source) q.set('source', params.source);
     if (params?.appointmentId) q.set('appointmentId', params.appointmentId);
+    if (params?.professionalId) q.set('professionalId', params.professionalId);
+    if (params?.healthInsuranceId) q.set('healthInsuranceId', params.healthInsuranceId);
+    if (params?.insuranceBillingStatus) {
+      q.set('insuranceBillingStatus', params.insuranceBillingStatus);
+    }
     const qs = q.toString();
     const response = await this.client.get(`/payments${qs ? `?${qs}` : ''}`);
     return response.data;
@@ -548,7 +564,10 @@ class ApiClient {
     appointmentId?: string;
     amount: number;
     method: 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER';
-    source: 'PRIVATE' | 'INSURANCE';
+    /** Sin obra social en el payload = particular (100% paciente). */
+    source?: 'PRIVATE' | 'INSURANCE';
+    /** Copago: reparte según `coveragePercent` de la obra social. */
+    healthInsuranceId?: string;
   }) {
     const response = await this.client.post('/payments', data);
     return response.data;
@@ -559,8 +578,62 @@ class ApiClient {
     return response.data;
   }
 
+  async patchPaymentInsuranceBilling(
+    id: string,
+    data: { action: 'INVOICED' | 'COLLECTED' },
+  ) {
+    const response = await this.client.patch(`/payments/${id}/insurance-billing`, data);
+    return response.data;
+  }
+
+  /**
+   * Descarga Excel de liquidación por obra social (solo pendientes de facturar).
+   * Por defecto el backend marca esos pagos como facturados salvo markInvoiced: false.
+   */
+  async downloadLiquidacionObraSocialExcel(
+    obraSocialId: string,
+    params?: { from?: string; to?: string; markInvoiced?: boolean },
+  ): Promise<void> {
+    const q = new URLSearchParams();
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    if (params?.markInvoiced === false) q.set('markInvoiced', 'false');
+    const qs = q.toString();
+    const url = `/finanzas/export/obra-social/${obraSocialId}${qs ? `?${qs}` : ''}`;
+    const response = await this.client.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+      validateStatus: (s) => s < 500,
+    });
+    if (response.status !== 200) {
+      let msg = 'No se pudo generar el archivo';
+      try {
+        const raw = response.data as ArrayBuffer;
+        const t = new TextDecoder().decode(new Uint8Array(raw));
+        const j = JSON.parse(t) as { message?: string | string[] };
+        const m = j.message;
+        msg = Array.isArray(m) ? m.join(', ') : (m ?? msg);
+      } catch {
+        /* ignore */
+      }
+      throw new Error(msg);
+    }
+    const cd = response.headers['content-disposition'] as string | undefined;
+    let filename = 'liquidacion.xlsx';
+    const match = cd?.match(/filename="([^"]+)"/i) ?? cd?.match(/filename=([^;]+)/i);
+    if (match?.[1]) filename = match[1].trim();
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
   async getDashboardSummary(): Promise<{
     professionalsActive: number;
+    patientsTotal: number;
     appointmentsToday: number;
     appointmentsPending: number;
     monthlyIncome: number;
@@ -788,6 +861,8 @@ class ApiClient {
   async createHealthInsurance(data: {
     name: string;
     code?: string;
+    /** % de la consulta cubierto por la OS (0–100). */
+    coveragePercent?: number;
     isActive?: boolean;
   }) {
     const response = await this.client.post('/health-insurances', data);
@@ -799,7 +874,7 @@ class ApiClient {
    */
   async updateHealthInsurance(
     id: string,
-    data: { name?: string; code?: string; isActive?: boolean },
+    data: { name?: string; code?: string; coveragePercent?: number; isActive?: boolean },
   ) {
     const response = await this.client.patch(`/health-insurances/${id}`, data);
     return response.data;
@@ -1043,6 +1118,8 @@ class ApiClient {
       email?: string;
     };
     notes?: string;
+    /** Motivo de consulta (opcional), mismo límite que agenda pública. */
+    reason?: string;
   }) {
     const response = await this.client.post('/appointments/manual', data);
     return response.data;

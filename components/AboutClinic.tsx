@@ -21,9 +21,9 @@ interface AboutClinicProps {
 export default function AboutClinic({ clinic }: AboutClinicProps) {
   if (!clinic) {
     return (
-      <section id="sobre-nosotros" className="py-20 bg-white">
+      <section id="sobre-nosotros" className="py-20 ensigna-page-bg">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-gray-50 rounded-2xl p-12 border border-gray-200">
+          <div className="ensigna-glass rounded-[var(--ensigna-radius-lg)] p-12">
             <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Información no disponible
@@ -39,9 +39,9 @@ export default function AboutClinic({ clinic }: AboutClinicProps) {
 
   if (!clinic.isActive) {
     return (
-      <section id="sobre-nosotros" className="py-20 bg-white">
+      <section id="sobre-nosotros" className="py-20 ensigna-page-bg">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="bg-gray-50 rounded-2xl p-12 border border-gray-200">
+          <div className="ensigna-glass rounded-[var(--ensigna-radius-lg)] p-12">
             <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Centro Médico Temporalmente Cerrado
@@ -84,7 +84,7 @@ export default function AboutClinic({ clinic }: AboutClinicProps) {
   ].filter((item) => item.show);
 
   return (
-    <section id="sobre-nosotros" className="py-24 bg-white w-full overflow-hidden">
+    <section id="sobre-nosotros" className="py-24 ensigna-page-bg w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

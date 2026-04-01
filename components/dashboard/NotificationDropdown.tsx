@@ -115,10 +115,10 @@ export function NotificationDropdown({
       />
       <div
         ref={panelRef}
-        className="fixed top-16 right-4 left-4 z-50 sm:left-auto sm:w-[380px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+        className="fixed top-16 right-4 left-4 z-50 sm:left-auto sm:w-[380px] ensigna-modal-panel overflow-hidden rounded-[var(--ensigna-radius)]"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">Notificaciones</h3>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.06] bg-white/50">
+          <h3 className="font-semibold text-[var(--ensigna-text)]">Notificaciones</h3>
           {unreadCount > 0 && (
             <button
               type="button"
@@ -130,24 +130,24 @@ export function NotificationDropdown({
             </button>
           )}
         </div>
-        <div className="max-h-[min(70vh,400px)] overflow-y-auto">
+        <div className="max-h-[min(70vh,400px)] overflow-y-auto bg-white/50">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-gray-300 animate-spin" />
+              <Loader2 className="w-8 h-8 text-red-200 animate-spin" />
             </div>
           ) : notifications.length === 0 ? (
-            <p className="text-center text-gray-500 py-8 px-4">
+            <p className="text-center text-[var(--ensigna-text-secondary)] py-8 px-4">
               No tenés notificaciones
             </p>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-black/[0.06]">
               {notifications.map((n) => (
                 <li key={n.id}>
                   <button
                     type="button"
                     onClick={() => handleItemClick(n)}
-                    className={`w-full text-left px-4 py-3 transition-colors hover:bg-gray-50 ${
-                      !n.readAt ? 'bg-red-50/50' : ''
+                    className={`w-full text-left px-4 py-3 transition-all duration-200 hover:bg-red-50/70 ${
+                      !n.readAt ? 'bg-red-50/40' : ''
                     }`}
                   >
                     <div className="flex gap-3">
@@ -155,9 +155,9 @@ export function NotificationDropdown({
                         <span className="flex-shrink-0 w-2 h-2 mt-1.5 rounded-full bg-red-500" />
                       )}
                       <div className={`flex-1 min-w-0 ${!n.readAt ? '' : 'pl-5'}`}>
-                        <p className="font-medium text-gray-900 text-sm">{n.title}</p>
-                        <p className="text-sm text-gray-600 line-clamp-2">{n.message}</p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="font-medium text-[var(--ensigna-text)] text-sm">{n.title}</p>
+                        <p className="text-sm text-[var(--ensigna-text-secondary)] line-clamp-2">{n.message}</p>
+                        <p className="text-xs text-[var(--ensigna-text-secondary)]/80 mt-1">
                           {formatRelativeTime(n.createdAt)}
                         </p>
                       </div>

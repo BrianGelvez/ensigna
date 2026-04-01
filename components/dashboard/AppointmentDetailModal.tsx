@@ -354,7 +354,7 @@ export default function AppointmentDetailModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 min-h-[100dvh] min-w-full bg-black/50 backdrop-blur-sm z-0"
+          className="fixed inset-0 min-h-[100dvh] min-w-full ensigna-modal-backdrop z-0"
           onClick={onClose}
           aria-hidden
         />
@@ -364,10 +364,10 @@ export default function AppointmentDetailModal({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
           transition={{ duration: 0.2 }}
-          className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col"
+          className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-hidden ensigna-modal-panel flex flex-col rounded-[var(--ensigna-radius-lg)]"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between flex-shrink-0 px-4 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/80">
+          <div className="flex items-center justify-between flex-shrink-0 px-4 sm:px-6 py-4 border-b border-black/[0.06] bg-white/40 backdrop-blur-md">
             <h2 id="appointment-detail-title" className="text-lg font-semibold text-gray-900">
               Detalle del turno
             </h2>

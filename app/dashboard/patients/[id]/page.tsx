@@ -254,7 +254,7 @@ export default function PatientDetailPage() {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="p-6 sm:p-8 border-b border-gray-100">
-          <div className="flex flex-col sm:items-start gap-1">
+          <div className="flex flex-col sm:items-start gap-2">
             <div className="flex items-start gap-4">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0">
                 <User className="w-7 h-7 text-white" />
@@ -348,7 +348,7 @@ export default function PatientDetailPage() {
                     <span className="text-pink-400">
                       {patient.emergencyContactName}
                       {patient.emergencyContactPhone &&
-                        ` · ${patient.emergencyContactPhone}`}
+                        ` - Telefono: ${patient.emergencyContactPhone}`}
                     </span>
                   </div>
                 )}

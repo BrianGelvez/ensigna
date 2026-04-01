@@ -185,19 +185,19 @@ export default function IdentifyPatientPage() {
   if (!slug) return null;
 
   const inputCls =
-    'w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-h-[44px]';
+    'w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-red-500/30 focus:border-ensigna-primary min-h-[44px]';
   const healthInsurances = clinicInfo?.healthInsurances ?? [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-red-50/80 via-[var(--ensigna-background)] to-rose-50/40 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-lg"
       >
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <div className="ensigna-modal-panel overflow-hidden rounded-[var(--ensigna-radius-lg)]">
           <div className="p-6 sm:p-8 pb-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#E53935] to-[#C62828] flex items-center justify-center mx-auto mb-4">
               <User className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
@@ -214,7 +214,7 @@ export default function IdentifyPatientPage() {
               onClick={() => { setActiveTab('identify'); setError(null); }}
               className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-semibold transition-colors ${
                 activeTab === 'identify'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50'
+                  ? 'text-ensigna-primary border-b-2 border-ensigna-primary bg-red-50/50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -226,7 +226,7 @@ export default function IdentifyPatientPage() {
               onClick={() => { setActiveTab('new'); setError(null); }}
               className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-semibold transition-colors ${
                 activeTab === 'new'
-                  ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50'
+                  ? 'text-ensigna-primary border-b-2 border-ensigna-primary bg-red-50/50'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
@@ -273,7 +273,7 @@ export default function IdentifyPatientPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-[48px]"
+                    className="w-full py-3.5 rounded-xl gradient-red text-white font-medium hover:brightness-110 active:brightness-95 disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-[48px]"
                   >
                     {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (
                       <>Identificarme <ArrowRight className="w-4 h-4" /></>
@@ -308,9 +308,9 @@ export default function IdentifyPatientPage() {
                           <div
                             className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 ${
                               step === s.id
-                                ? 'bg-indigo-600 text-white'
+                                ? 'gradient-red text-white'
                                 : step > s.id
-                                  ? 'bg-indigo-100 text-indigo-700'
+                                  ? 'bg-red-100 text-red-800'
                                   : 'bg-gray-100 text-gray-500'
                             }`}
                           >
@@ -319,14 +319,14 @@ export default function IdentifyPatientPage() {
                           {i < STEPS.length - 1 && (
                             <div
                               className={`flex-1 h-1 mx-1 rounded-full min-w-0 ${
-                                step > s.id ? 'bg-indigo-200' : 'bg-gray-200'
+                                step > s.id ? 'bg-red-200' : 'bg-gray-200'
                               }`}
                             />
                           )}
                         </div>
                       ))}
                     </div>
-                    <p className="text-sm font-medium text-indigo-700">{STEPS[step - 1].title}</p>
+                    <p className="text-sm font-medium text-ensigna-primary">{STEPS[step - 1].title}</p>
                   </div>
 
                   {/* Step 1 */}
@@ -457,7 +457,7 @@ export default function IdentifyPatientPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
-                        <textarea value={fullForm.notes} onChange={(e) => update('notes', e.target.value)} rows={2} className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 resize-none" placeholder="Notas opcionales..." />
+                        <textarea value={fullForm.notes} onChange={(e) => update('notes', e.target.value)} rows={2} className="w-full rounded-xl border border-gray-200 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-red-500/30 resize-none" placeholder="Notas opcionales..." />
                       </div>
                     </motion.div>
                   )}
@@ -484,7 +484,7 @@ export default function IdentifyPatientPage() {
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); goNext(); }}
-                        className="flex-1 py-3.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 inline-flex items-center justify-center gap-2 min-h-[48px]"
+                        className="flex-1 py-3.5 rounded-xl gradient-red text-white font-medium hover:brightness-110 inline-flex items-center justify-center gap-2 min-h-[48px]"
                       >
                         Siguiente
                         <ChevronRight className="w-4 h-4" />
@@ -493,7 +493,7 @@ export default function IdentifyPatientPage() {
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="flex-1 py-3.5 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-[48px]"
+                        className="flex-1 py-3.5 rounded-xl gradient-red text-white font-medium hover:brightness-110 disabled:opacity-50 inline-flex items-center justify-center gap-2 min-h-[48px]"
                       >
                         {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Registrarme y continuar'}
                       </button>

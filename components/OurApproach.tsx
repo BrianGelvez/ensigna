@@ -40,7 +40,7 @@ const approaches = [
 
 export default function OurApproach() {
   return (
-    <section id="nuestro-enfoque" className="py-24 bg-gradient-to-b from-white via-gray-50 to-white relative overflow-hidden w-full">
+    <section id="nuestro-enfoque" className="py-24 bg-gradient-to-b from-[var(--ensigna-background)] via-red-50/25 to-[var(--ensigna-background)] relative overflow-hidden w-full">
       {/* Background decoration */}
       <div className="absolute top-1/4 right-0 w-96 h-96 bg-red-50/40 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 left-0 w-96 h-96 bg-blue-50/30 rounded-full blur-3xl pointer-events-none"></div>

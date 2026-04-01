@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   XCircle,
   UserPlus,
+  UsersRound,
   Stethoscope,
   Loader2,
   AlertCircle,
@@ -234,6 +235,13 @@ export default function OverviewSection() {
             color: 'bg-gradient-to-br from-blue-500 to-blue-600',
             href: '/dashboard?section=team',
           },
+          {
+            title: 'Pacientes totales',
+            value: String(summary.patientsTotal ?? 0),
+            icon: <UsersRound className="w-6 h-6 text-white" />,
+            color: 'bg-gradient-to-br from-rose-500 to-rose-600',
+            href: '/dashboard/patients',
+          },
         ]
       : [
           {
@@ -242,6 +250,13 @@ export default function OverviewSection() {
             icon: <Users className="w-6 h-6 text-white" />,
             color: 'bg-gradient-to-br from-blue-500 to-blue-600',
             href: '/dashboard?section=team',
+          },
+          {
+            title: 'Pacientes totales',
+            value: String(summary.patientsTotal ?? 0),
+            icon: <UsersRound className="w-6 h-6 text-white" />,
+            color: 'bg-gradient-to-br from-rose-500 to-rose-600',
+            href: '/dashboard/patients',
           },
           {
             title: 'Turnos hoy',
@@ -282,7 +297,7 @@ export default function OverviewSection() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-600 via-red-700 to-rose-800 p-6 sm:p-8 text-white"
+        className="relative overflow-hidden rounded-[var(--ensigna-radius-lg)] bg-gradient-to-br from-[#E53935] via-[#bf201d] to-[#C62828] p-6 sm:p-8 text-white shadow-ensigna"
       >
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/3 blur-2xl" />
@@ -389,7 +404,7 @@ export default function OverviewSection() {
           <p className="text-sm text-gray-500">Cargando métricas...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {stats.map((stat, index) => (
             <DashboardCard key={stat.title} {...stat} delay={index * 0.1} />
           ))}
@@ -401,7 +416,7 @@ export default function OverviewSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="lg:col-span-2 min-w-0 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 overflow-hidden"
+          className="lg:col-span-2 min-w-0 ensigna-glass p-6 overflow-hidden transition-all duration-200 hover:shadow-ensigna-hover"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Acciones rápidas
@@ -450,7 +465,7 @@ export default function OverviewSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="min-w-0 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 overflow-hidden"
+          className="min-w-0 ensigna-glass p-6 overflow-hidden transition-all duration-200 hover:shadow-ensigna-hover"
         >
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Actividad reciente
@@ -484,7 +499,7 @@ export default function OverviewSection() {
                       go(href);
                     }
                   }}
-                  className="flex items-start gap-3 p-2 -m-2 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+                  className="flex items-start gap-3 p-2 -m-2 rounded-lg cursor-pointer hover:bg-red-50/60 transition-all duration-200"
                 >
                   <div className="mt-0.5 shrink-0 w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100">
                     {activityIcon(activity.type)}
@@ -511,7 +526,7 @@ export default function OverviewSection() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
-        className="min-w-0 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 overflow-hidden"
+        className="min-w-0 ensigna-glass p-6 overflow-hidden transition-all duration-200 hover:shadow-ensigna-hover"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">

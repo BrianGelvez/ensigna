@@ -9,6 +9,7 @@ interface HealthInsurance {
   id: string;
   name: string;
   code?: string | null;
+  coveragePercent?: number;
   isActive: boolean;
 }
 
@@ -80,6 +81,11 @@ export default function HealthInsurancesSection() {
             >
               <div>
                 <p className="font-medium text-gray-900">{hi.name}</p>
+                {typeof hi.coveragePercent === 'number' && hi.coveragePercent > 0 && (
+                  <p className="text-xs text-indigo-600 font-medium">
+                    Cobertura: {hi.coveragePercent}% (copago en finanzas)
+                  </p>
+                )}
                 {hi.code && (
                   <p className="text-xs text-gray-500">Código: {hi.code}</p>
                 )}
@@ -158,8 +164,20 @@ function HealthInsuranceFormModal({
   const isEdit = !!insurance;
   const [name, setName] = useState(insurance?.name ?? '');
   const [code, setCode] = useState(insurance?.code ?? '');
+  const [coveragePercent, setCoveragePercent] = useState(
+    insurance?.coveragePercent != null ? String(insurance.coveragePercent) : '0',
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!insurance) return;
+    setName(insurance.name);
+    setCode(insurance.code ?? '');
+    setCoveragePercent(
+      insurance.coveragePercent != null ? String(insurance.coveragePercent) : '0',
+    );
+  }, [insurance]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,15 +188,18 @@ function HealthInsuranceFormModal({
     }
     setSubmitting(true);
     try {
+      const pct = Math.min(100, Math.max(0, parseFloat(coveragePercent.replace(',', '.')) || 0));
       if (isEdit && insurance) {
         await apiClient.updateHealthInsurance(insurance.id, {
           name: name.trim(),
           code: code.trim() || undefined,
+          coveragePercent: pct,
         });
       } else {
         await apiClient.createHealthInsurance({
           name: name.trim(),
           code: code.trim() || undefined,
+          coveragePercent: pct,
         });
       }
       onSuccess();
@@ -234,6 +255,22 @@ function HealthInsuranceFormModal({
               placeholder="Ej: OSDE310"
               className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              % Cobertura (0–100)
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={coveragePercent}
+              onChange={(e) => setCoveragePercent(e.target.value)}
+              placeholder="Ej: 10 (la OS cubre 10%, el paciente 90%)"
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Usado al registrar pagos con copago. 0 = particular paga todo.
+            </p>
           </div>
           <div className="flex gap-3 pt-2">
             <button

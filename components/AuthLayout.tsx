@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 
 interface AuthLayoutProps {
@@ -16,14 +17,14 @@ export default function AuthLayout({
   subtitle,
 }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50/50 via-white to-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full mx-auto">
-        {/* Logo + Volver al inicio */}
+    <div className="min-h-screen ensigna-page-bg py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-red-500/10 blur-3xl" />
+        <div className="absolute bottom-0 -left-16 h-64 w-64 rounded-full bg-[#bf201d]/8 blur-3xl" />
+      </div>
+      <div className="relative max-w-md w-full mx-auto">
         <div className="flex flex-col items-center mb-8">
-          <Link
-            href="/"
-            className="flex items-center gap-3 mb-6"
-          >
+          <Link href="/" className="flex items-center gap-3 mb-6">
             <div className="relative w-12 h-12 sm:w-14 sm:h-14">
               <Image
                 src="/ensigna.png"
@@ -33,33 +34,37 @@ export default function AuthLayout({
                 priority
               />
             </div>
-            <span className="text-xl sm:text-2xl font-bold text-gray-900">
+            <span className="text-xl sm:text-2xl font-bold text-[var(--ensigna-text)]">
               ENSIGNA
             </span>
           </Link>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-red-600 transition-colors"
+            className="inline-flex items-center gap-2 text-sm font-medium text-[var(--ensigna-text-secondary)] hover:text-ensigna-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Volver al inicio
           </Link>
         </div>
 
-        {/* Card del formulario */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="ensigna-modal-panel overflow-hidden"
+        >
           <div className="px-6 sm:px-8 pt-8 pb-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 text-center">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--ensigna-text)] text-center">
               {title}
             </h1>
             {subtitle && (
-              <p className="mt-2 text-center text-sm text-gray-600">
+              <p className="mt-2 text-center text-sm text-[var(--ensigna-text-secondary)]">
                 {subtitle}
               </p>
             )}
           </div>
           <div className="px-6 sm:px-8 pb-8">{children}</div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

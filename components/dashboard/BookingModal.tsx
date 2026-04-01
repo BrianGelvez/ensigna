@@ -44,6 +44,8 @@ export default function BookingModal({
     email: '',
   });
 
+  const [appointmentReason, setAppointmentReason] = useState('');
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +92,8 @@ export default function BookingModal({
       }
     }
 
+    const trimmedReason = appointmentReason.trim().slice(0, 150);
+
     setSubmitting(true);
     try {
       if (mode === 'search' && selectedPatientId) {
@@ -99,6 +103,7 @@ export default function BookingModal({
           startTime: slot.startTime,
           endTime: slot.endTime,
           patientId: selectedPatientId,
+          ...(trimmedReason ? { reason: trimmedReason } : {}),
         });
       } else {
         await apiClient.createManualAppointment({
@@ -113,6 +118,7 @@ export default function BookingModal({
             phone: newPatient.phone.trim() || undefined,
             email: newPatient.email.trim() || undefined,
           },
+          ...(trimmedReason ? { reason: trimmedReason } : {}),
         });
       }
       onSuccess();
@@ -130,7 +136,7 @@ export default function BookingModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 min-h-[100dvh] min-w-full bg-black/50 z-0"
+          className="fixed inset-0 min-h-[100dvh] min-w-full ensigna-modal-backdrop z-0"
           onClick={onClose}
           aria-hidden
         />
@@ -139,9 +145,9 @@ export default function BookingModal({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.98 }}
           transition={{ type: 'tween', duration: 0.2 }}
-          className="relative z-10 w-full sm:max-w-lg sm:max-h-[90vh] max-h-[85vh] sm:rounded-2xl rounded-t-2xl overflow-hidden bg-white shadow-xl border border-gray-100 flex flex-col"
+          className="relative z-10 w-full sm:max-w-lg sm:max-h-[90vh] max-h-[85vh] sm:rounded-[var(--ensigna-radius-lg)] rounded-t-[var(--ensigna-radius-lg)] overflow-hidden ensigna-modal-panel flex flex-col"
         >
-          <div className="sticky top-0 bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0">
+          <div className="sticky top-0 bg-white/50 backdrop-blur-md border-b border-black/[0.06] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0">
             <h3 className="text-base sm:text-lg font-semibold text-gray-900">Reservar turno</h3>
             <button
               type="button"
@@ -270,6 +276,27 @@ export default function BookingModal({
                 />
               </div>
             )}
+
+            <div className="rounded-xl p-4 border border-gray-200">
+              <label
+                htmlFor="booking-modal-reason"
+                className="block text-xs font-semibold text-gray-600 uppercase mb-2"
+              >
+                Motivo de consulta (opcional)
+              </label>
+              <input
+                id="booking-modal-reason"
+                type="text"
+                value={appointmentReason}
+                onChange={(e) => setAppointmentReason(e.target.value.slice(0, 150))}
+                maxLength={150}
+                placeholder="Ej: control, fiebre, chequeo general..."
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 sm:py-2.5 text-base sm:text-sm min-h-[48px] sm:min-h-0 touch-manipulation focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+              <p className="text-xs text-gray-500 mt-1 text-right">
+                {appointmentReason.length}/150
+              </p>
+            </div>
 
             {error && (
               <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-800">

@@ -14,15 +14,15 @@ export default function LegalPageShell({
   children,
 }: LegalPageShellProps) {
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-gray-50">
+    <div className="min-h-screen w-full overflow-x-hidden ensigna-page-bg">
       <Header />
       <main className="pt-24 pb-20 px-4 sm:px-6 lg:px-8">
-        <article className="max-w-3xl mx-auto">
+        <article className="max-w-3xl mx-auto ensigna-glass p-8 sm:p-10 rounded-[var(--ensigna-radius-lg)]">
           <nav
             className="text-sm text-gray-500 mb-8"
             aria-label="Migas de pan"
           >
-            <Link href="/" className="hover:text-red-600 transition-colors">
+            <Link href="/" className="hover:text-ensigna-primary transition-colors">
               Inicio
             </Link>
             <span className="mx-2 text-gray-300">/</span>

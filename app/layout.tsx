@@ -4,7 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ConditionalChatbot from '@/components/ConditionalChatbot'; // Importa el nuevo componente
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'ENSIGNA - Centro Médico | Tecnología y Excelencia en Salud',
@@ -18,8 +18,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="w-full overflow-x-hidden">
-      <body className={`${inter.className} w-full overflow-x-hidden`}>
+    <html lang="es" className={`${inter.variable} w-full overflow-x-hidden`}>
+      <body
+        className={`${inter.className} font-sans w-full overflow-x-hidden ensigna-page-bg text-ensigna-text antialiased`}
+      >
         <AuthProvider>
           {children}
           {/* El componente ahora decide internamente si mostrarse o no */}

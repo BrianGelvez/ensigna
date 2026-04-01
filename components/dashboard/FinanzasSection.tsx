@@ -10,6 +10,10 @@ import {
   Plus,
   Loader2,
   RefreshCw,
+  Building2,
+  FileCheck,
+  CheckCircle2,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,23 +23,31 @@ type PaymentRow = {
   id: string;
   createdAt: string;
   amount: number;
+  patientPaidAmount?: number;
+  insuranceAmount?: number;
+  healthInsuranceId?: string | null;
+  insuranceBillingStatus?: 'PENDING' | 'INVOICED' | 'COLLECTED' | null;
   method: string;
   source: string;
   status: string;
   patient: { id: string; firstName: string; lastName: string };
+  healthInsurance?: { id: string; name: string } | null;
+  appointment?: {
+    id: string;
+    startTime: string;
+    professional?: { firstName: string; lastName: string } | null;
+  } | null;
   insuranceClaim?: { id: string; status: string } | null;
 };
+
+type ProfessionalOpt = { id: string; firstName: string; lastName: string };
+type HiOpt = { id: string; name: string };
 
 const METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
   TRANSFER: 'Transferencia',
   CARD: 'Tarjeta',
   OTHER: 'Otro',
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  PRIVATE: 'Particular',
-  INSURANCE: 'Obra social',
 };
 
 function formatMoney(n: number) {
@@ -54,32 +66,69 @@ function formatDateTime(iso: string) {
   }).format(d);
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    PAID: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    PENDING: 'bg-amber-100 text-amber-900 border-amber-200',
-    CANCELED: 'bg-red-100 text-red-800 border-red-200',
-  };
-  const labels: Record<string, string> = {
-    PAID: 'Cobrado',
-    PENDING: 'Pendiente',
-    CANCELED: 'Anulado',
-  };
-  return (
-    <span
-      className={`inline-flex px-2 py-0.5 rounded-lg text-xs font-medium border ${map[status] ?? 'bg-gray-100 text-gray-700'}`}
-    >
-      {labels[status] ?? status}
-    </span>
-  );
+function formatTurno(iso?: string | null) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat('es-AR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(d);
+}
+
+function patientPaidDisplay(p: PaymentRow): number {
+  const pp = p.patientPaidAmount ?? 0;
+  const ins = p.insuranceAmount ?? 0;
+  const hasSplit =
+    pp > 0 || ins > 0 || (p.healthInsuranceId != null && p.healthInsuranceId.length > 0);
+  if (hasSplit) return pp;
+  if (p.status === 'PAID' && p.source === 'PRIVATE') return p.amount;
+  return 0;
+}
+
+function insuranceDisplay(p: PaymentRow): number {
+  const ins = p.insuranceAmount ?? 0;
+  if (ins > 0) return ins;
+  if (p.status === 'PENDING' && p.source === 'INSURANCE' && p.insuranceClaim) {
+    return p.amount;
+  }
+  return 0;
+}
+
+function rowStateBadge(p: PaymentRow): { label: string; className: string } {
+  if (p.status === 'CANCELED') {
+    return { label: 'Anulado', className: 'bg-red-100 text-red-800 border-red-200' };
+  }
+  if (p.status === 'PENDING' && p.source === 'INSURANCE') {
+    return {
+      label: 'Pendiente OS (liquidación)',
+      className: 'bg-amber-100 text-amber-900 border-amber-200',
+    };
+  }
+  if (p.insuranceBillingStatus === 'COLLECTED') {
+    return { label: 'OS cobrada', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
+  }
+  if (p.insuranceBillingStatus === 'INVOICED') {
+    return { label: 'OS facturada', className: 'bg-sky-100 text-sky-900 border-sky-200' };
+  }
+  if (p.insuranceBillingStatus === 'PENDING') {
+    return { label: 'Pendiente OS', className: 'bg-amber-50 text-amber-900 border-amber-200' };
+  }
+  if (p.status === 'PAID') {
+    return { label: 'Pagado', className: 'bg-emerald-50 text-emerald-800 border-emerald-200' };
+  }
+  return { label: p.status, className: 'bg-gray-100 text-gray-700 border-gray-200' };
 }
 
 export default function FinanzasSection() {
   const { user } = useAuth();
-  const canManageStatus =
-    user?.role === 'OWNER' || user?.role === 'ADMIN';
+  const canManageStatus = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   const [summary, setSummary] = useState<{
+    todayPatientIncome: number;
+    totalPatientIncome: number;
+    pendingInsurance: number;
+    invoicedInsurance: number;
+    collectedInsurance: number;
     todayIncome: number;
     totalIncome: number;
     pendingIncome: number;
@@ -87,6 +136,8 @@ export default function FinanzasSection() {
     bySource: { PRIVATE: number; INSURANCE: number };
   } | null>(null);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [professionals, setProfessionals] = useState<ProfessionalOpt[]>([]);
+  const [healthInsurances, setHealthInsurances] = useState<HiOpt[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -96,6 +147,44 @@ export default function FinanzasSection() {
   const [toDate, setToDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSource, setFilterSource] = useState('');
+  const [filterProfessionalId, setFilterProfessionalId] = useState('');
+  const [filterHealthInsuranceId, setFilterHealthInsuranceId] = useState('');
+  const [filterBilling, setFilterBilling] = useState('');
+
+  const [exportOsId, setExportOsId] = useState('');
+  const [exportFrom, setExportFrom] = useState('');
+  const [exportTo, setExportTo] = useState('');
+  const [exportMarkInvoiced, setExportMarkInvoiced] = useState(true);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const loadMeta = useCallback(async () => {
+    try {
+      const [profs, his] = await Promise.all([
+        apiClient.getProfessionals(),
+        apiClient.getHealthInsurances(true),
+      ]);
+      const pList = Array.isArray(profs) ? profs : [];
+      setProfessionals(
+        pList.map((x: { id: string; firstName: string; lastName: string }) => ({
+          id: x.id,
+          firstName: x.firstName,
+          lastName: x.lastName,
+        })),
+      );
+      const hList = Array.isArray(his) ? his : [];
+      setHealthInsurances(
+        hList.map((x: { id: string; name: string }) => ({ id: x.id, name: x.name })),
+      );
+    } catch {
+      setProfessionals([]);
+      setHealthInsurances([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMeta();
+  }, [loadMeta]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,6 +196,10 @@ export default function FinanzasSection() {
           toDate: toDate || undefined,
           status: filterStatus || undefined,
           source: filterSource || undefined,
+          professionalId: filterProfessionalId || undefined,
+          healthInsuranceId: filterHealthInsuranceId || undefined,
+          insuranceBillingStatus:
+            (filterBilling as 'PENDING' | 'INVOICED' | 'COLLECTED') || undefined,
         }),
       ]);
       setSummary(s);
@@ -117,7 +210,16 @@ export default function FinanzasSection() {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, filterStatus, filterSource, refreshKey]);
+  }, [
+    fromDate,
+    toDate,
+    filterStatus,
+    filterSource,
+    filterProfessionalId,
+    filterHealthInsuranceId,
+    filterBilling,
+    refreshKey,
+  ]);
 
   useEffect(() => {
     void load();
@@ -133,7 +235,44 @@ export default function FinanzasSection() {
     }
   };
 
-  const pendingHigh = summary && summary.pendingIncome >= 100000;
+  const handlePatchBilling = async (id: string, action: 'INVOICED' | 'COLLECTED') => {
+    setActionId(id);
+    try {
+      await apiClient.patchPaymentInsuranceBilling(id, { action });
+      setRefreshKey((k) => k + 1);
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleExportLiquidacion = async () => {
+    if (!exportOsId) {
+      setExportError('Seleccioná una obra social.');
+      return;
+    }
+    if ((exportFrom && !exportTo) || (!exportFrom && exportTo)) {
+      setExportError('Indicá fecha desde y hasta, o dejá ambas vacías.');
+      return;
+    }
+    setExportLoading(true);
+    setExportError(null);
+    try {
+      await apiClient.downloadLiquidacionObraSocialExcel(exportOsId, {
+        from: exportFrom || undefined,
+        to: exportTo || undefined,
+        markInvoiced: exportMarkInvoiced,
+      });
+      setRefreshKey((k) => k + 1);
+    } catch (e: unknown) {
+      setExportError(e instanceof Error ? e.message : 'Error al exportar.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const pendingHigh = summary && summary.pendingInsurance >= 100000;
+
+  const colCount = canManageStatus ? 9 : 8;
 
   return (
     <motion.div
@@ -148,7 +287,7 @@ export default function FinanzasSection() {
             Finanzas
           </h1>
           <p className="text-gray-600 mt-1 text-sm">
-            Ingresos, obra social y estado de cobros de tu clínica.
+            Ingresos del paciente, deuda y cobro de obra social, con trazabilidad por turno.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -175,10 +314,10 @@ export default function FinanzasSection() {
         <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-sm">
           <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600" />
           <div>
-            <p className="font-semibold">Cobros pendientes elevados</p>
+            <p className="font-semibold">Pendiente de obra social elevado</p>
             <p className="text-amber-900/90 mt-0.5">
-              Hay {formatMoney(summary!.pendingIncome)} pendientes de liquidación (obra social u otros). Revisá la tabla y
-              actualizá estados cuando cobren.
+              Hay {formatMoney(summary!.pendingInsurance)} pendientes de facturar/cobrar a obras
+              sociales (incluye liquidaciones clásicas). Revisá la tabla y actualizá estados.
             </p>
           </div>
         </div>
@@ -189,56 +328,146 @@ export default function FinanzasSection() {
           <Loader2 className="w-10 h-10 animate-spin text-amber-500" />
         </div>
       ) : summary ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          <div className="ensigna-glass p-4">
+            <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
               <TrendingUp className="w-4 h-4" />
-              Hoy
+              Hoy · Paciente
             </div>
-            <p className="text-2xl font-bold text-gray-900 mt-2">
-              {formatMoney(summary.todayIncome)}
+            <p className="text-xl font-bold text-gray-900 mt-1">
+              {formatMoney(summary.todayPatientIncome ?? summary.todayIncome)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Solo cobros confirmados (PAID)</p>
           </div>
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
+          <div className="ensigna-glass p-4">
+            <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
               <Wallet className="w-4 h-4" />
-              Total cobrado
+              Total · Ingresos paciente
             </div>
-            <p className="text-2xl font-bold text-gray-900 mt-2">
-              {formatMoney(summary.totalIncome)}
+            <p className="text-xl font-bold text-gray-900 mt-1">
+              {formatMoney(summary.totalPatientIncome ?? summary.totalIncome)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Histórico confirmado</p>
           </div>
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-amber-800 text-xs font-medium">
               <Clock className="w-4 h-4" />
-              Pendiente
+              Pendiente OS
             </div>
-            <p className="text-2xl font-bold text-amber-700 mt-2">
-              {formatMoney(summary.pendingIncome)}
+            <p className="text-xl font-bold text-amber-900 mt-1">
+              {formatMoney(summary.pendingInsurance)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Incluye liquidaciones OS</p>
           </div>
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <p className="text-sm font-medium text-gray-700">Por origen (cobrado)</p>
-            <p className="text-sm text-gray-600 mt-2">
-              Particular:{' '}
-              <span className="font-semibold text-gray-900">
-                {formatMoney(summary.bySource.PRIVATE)}
-              </span>
+          <div className="rounded-2xl border border-sky-100 bg-sky-50/40 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-sky-800 text-xs font-medium">
+              <FileCheck className="w-4 h-4" />
+              Facturado OS
+            </div>
+            <p className="text-xl font-bold text-sky-900 mt-1">
+              {formatMoney(summary.invoicedInsurance)}
             </p>
-            <p className="text-sm text-gray-600">
-              Obra social:{' '}
-              <span className="font-semibold text-gray-900">
-                {formatMoney(summary.bySource.INSURANCE)}
-              </span>
+          </div>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 shadow-sm">
+            <div className="flex items-center gap-2 text-emerald-800 text-xs font-medium">
+              <CheckCircle2 className="w-4 h-4" />
+              Cobrado OS
+            </div>
+            <p className="text-xl font-bold text-emerald-900 mt-1">
+              {formatMoney(summary.collectedInsurance)}
+            </p>
+          </div>
+          <div className="ensigna-glass p-4">
+            <div className="flex items-center gap-2 text-gray-500 text-xs font-medium">
+              <Building2 className="w-4 h-4" />
+              Método (cobrado)
+            </div>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+              Ef. {formatMoney(summary.byMethod.CASH)} · Tr.{' '}
+              {formatMoney(summary.byMethod.TRANSFER)}
             </p>
           </div>
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden shadow-sm">
+      {canManageStatus && (
+        <div className="ensigna-glass p-4 sm:p-6 bg-emerald-50/50 border-emerald-200/40 shadow-[0_8px_30px_rgba(16,124,65,0.08)]">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-emerald-950 flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-[#107C41]" />
+                Exportar liquidación (Excel)
+              </h2>
+              <p className="text-sm text-emerald-900/70 mt-1">
+                Incluye solo pagos con monto de obra social en estado{' '}
+                <strong className="text-emerald-900">pendiente</strong>. Por defecto, al descargar se marcan como{' '}
+                <strong className="text-emerald-900">facturados</strong> (podés desactivarlo para solo generar el archivo).
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-3 items-end">
+            <label className="text-xs text-emerald-900/80 flex flex-col gap-1 min-w-[200px]">
+              Obra social
+              <select
+                value={exportOsId}
+                onChange={(e) => setExportOsId(e.target.value)}
+                className="rounded-lg border border-emerald-200/80 bg-white/90 px-2 py-2 text-sm text-emerald-950 focus:border-[#107C41] focus:outline-none focus:ring-2 focus:ring-[#107C41]/25"
+              >
+                <option value="">Seleccionar…</option>
+                {healthInsurances.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-emerald-900/80 flex flex-col gap-1">
+              Desde (opcional)
+              <input
+                type="date"
+                value={exportFrom}
+                onChange={(e) => setExportFrom(e.target.value)}
+                className="rounded-lg border border-emerald-200/80 bg-white/90 px-2 py-1.5 text-sm text-emerald-950 focus:border-[#107C41] focus:outline-none focus:ring-2 focus:ring-[#107C41]/25"
+              />
+            </label>
+            <label className="text-xs text-emerald-900/80 flex flex-col gap-1">
+              Hasta (opcional)
+              <input
+                type="date"
+                value={exportTo}
+                onChange={(e) => setExportTo(e.target.value)}
+                className="rounded-lg border border-emerald-200/80 bg-white/90 px-2 py-1.5 text-sm text-emerald-950 focus:border-[#107C41] focus:outline-none focus:ring-2 focus:ring-[#107C41]/25"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-emerald-900 cursor-pointer pb-1">
+              <input
+                type="checkbox"
+                checked={exportMarkInvoiced}
+                onChange={(e) => setExportMarkInvoiced(e.target.checked)}
+                className="rounded border-emerald-400 text-[#107C41] focus:ring-[#107C41]/30"
+              />
+              Marcar como facturado al exportar
+            </label>
+            <button
+              type="button"
+              disabled={exportLoading}
+              onClick={() => void handleExportLiquidacion()}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-br from-[#107C41] to-[#185C37] text-white text-sm font-medium shadow-md shadow-emerald-900/20 hover:brightness-110 active:brightness-95 disabled:opacity-50 transition-all"
+            >
+              {exportLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-4 h-4" />
+              )}
+              Exportar liquidación
+            </button>
+          </div>
+          {exportError && (
+            <p className="mt-3 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              {exportError}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="ensigna-glass overflow-hidden p-0">
         <div className="px-4 sm:px-6 py-4 border-b border-gray-100 flex flex-col gap-3">
           <h2 className="text-lg font-semibold text-gray-900">Movimientos</h2>
           <div className="flex flex-wrap gap-2 items-end">
@@ -261,7 +490,7 @@ export default function FinanzasSection() {
               />
             </label>
             <label className="text-xs text-gray-500 flex flex-col gap-1">
-              Estado
+              Estado pago
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
@@ -274,7 +503,7 @@ export default function FinanzasSection() {
               </select>
             </label>
             <label className="text-xs text-gray-500 flex flex-col gap-1">
-              Tipo
+              Origen
               <select
                 value={filterSource}
                 onChange={(e) => setFilterSource(e.target.value)}
@@ -285,100 +514,186 @@ export default function FinanzasSection() {
                 <option value="INSURANCE">Obra social</option>
               </select>
             </label>
+            <label className="text-xs text-gray-500 flex flex-col gap-1">
+              Profesional
+              <select
+                value={filterProfessionalId}
+                onChange={(e) => setFilterProfessionalId(e.target.value)}
+                className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm min-w-[160px]"
+              >
+                <option value="">Todos</option>
+                {professionals.map((pr) => (
+                  <option key={pr.id} value={pr.id}>
+                    {pr.firstName} {pr.lastName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-gray-500 flex flex-col gap-1">
+              Obra social
+              <select
+                value={filterHealthInsuranceId}
+                onChange={(e) => setFilterHealthInsuranceId(e.target.value)}
+                className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm min-w-[160px]"
+              >
+                <option value="">Todas</option>
+                {healthInsurances.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-gray-500 flex flex-col gap-1">
+              Estado OS
+              <select
+                value={filterBilling}
+                onChange={(e) => setFilterBilling(e.target.value)}
+                className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm min-w-[140px]"
+              >
+                <option value="">Todos</option>
+                <option value="PENDING">Pendiente</option>
+                <option value="INVOICED">Facturado</option>
+                <option value="COLLECTED">Cobrado</option>
+              </select>
+            </label>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[960px]">
             <thead>
               <tr className="bg-gray-50 text-left text-gray-600">
-                <th className="px-4 py-3 font-medium">Fecha</th>
-                <th className="px-4 py-3 font-medium">Paciente</th>
-                <th className="px-4 py-3 font-medium text-right">Monto</th>
-                <th className="px-4 py-3 font-medium">Método</th>
-                <th className="px-4 py-3 font-medium">Tipo</th>
-                <th className="px-4 py-3 font-medium">Estado</th>
+                <th className="px-3 py-3 font-medium whitespace-nowrap">Fecha</th>
+                <th className="px-3 py-3 font-medium">Paciente</th>
+                <th className="px-3 py-3 font-medium whitespace-nowrap">Turno</th>
+                <th className="px-3 py-3 font-medium text-right whitespace-nowrap">Total</th>
+                <th className="px-3 py-3 font-medium text-right whitespace-nowrap">Paciente</th>
+                <th className="px-3 py-3 font-medium text-right whitespace-nowrap">OS</th>
+                <th className="px-3 py-3 font-medium">OS / Estado</th>
+                <th className="px-3 py-3 font-medium whitespace-nowrap">Método</th>
                 {canManageStatus && (
-                  <th className="px-4 py-3 font-medium text-right">Acciones</th>
+                  <th className="px-3 py-3 font-medium text-right whitespace-nowrap">Acciones</th>
                 )}
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td
-                    colSpan={canManageStatus ? 7 : 6}
-                    className="px-4 py-12 text-center text-gray-500"
-                  >
+                  <td colSpan={colCount} className="px-4 py-12 text-center text-gray-500">
                     <Loader2 className="w-6 h-6 animate-spin inline text-amber-500" />
                   </td>
                 </tr>
               ) : payments.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={canManageStatus ? 7 : 6}
-                    className="px-4 py-12 text-center text-gray-500"
-                  >
+                  <td colSpan={colCount} className="px-4 py-12 text-center text-gray-500">
                     No hay pagos con los filtros seleccionados.
                   </td>
                 </tr>
               ) : (
-                payments.map((p) => (
-                  <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50/80">
-                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
-                      {formatDateTime(p.createdAt)}
-                    </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {p.patient.firstName} {p.patient.lastName}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                      {formatMoney(p.amount)}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {METHOD_LABELS[p.method] ?? p.method}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {SOURCE_LABELS[p.source] ?? p.source}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={p.status} />
-                    </td>
-                    {canManageStatus && (
-                      <td className="px-4 py-3 text-right">
-                        {p.status === 'PENDING' && (
-                          <div className="flex flex-wrap justify-end gap-1">
-                            <button
-                              type="button"
-                              disabled={actionId === p.id}
-                              onClick={() => handlePatchStatus(p.id, 'PAID')}
-                              className="px-2 py-1 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                            >
-                              Cobrado
-                            </button>
-                            <button
-                              type="button"
-                              disabled={actionId === p.id}
-                              onClick={() => handlePatchStatus(p.id, 'CANCELED')}
-                              className="px-2 py-1 rounded-lg text-xs font-medium border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
-                            >
-                              Anular
-                            </button>
-                          </div>
-                        )}
-                        {p.status === 'PAID' && p.source === 'INSURANCE' && (
-                          <button
-                            type="button"
-                            disabled={actionId === p.id}
-                            onClick={() => handlePatchStatus(p.id, 'CANCELED')}
-                            className="px-2 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            Anular
-                          </button>
-                        )}
+                payments.map((p) => {
+                  const badge = rowStateBadge(p);
+                  const pp = patientPaidDisplay(p);
+                  const ins = insuranceDisplay(p);
+                  const pro = p.appointment?.professional;
+                  return (
+                    <tr key={p.id} className="border-t border-gray-100 hover:bg-gray-50/80">
+                      <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
+                        {formatDateTime(p.createdAt)}
                       </td>
-                    )}
-                  </tr>
-                ))
+                      <td className="px-3 py-3 font-medium text-gray-900">
+                        {p.patient.firstName} {p.patient.lastName}
+                      </td>
+                      <td className="px-3 py-3 text-gray-600 text-xs max-w-[140px] truncate">
+                        {pro
+                          ? `${pro.lastName}, ${pro.firstName} · ${formatTurno(p.appointment?.startTime)}`
+                          : formatTurno(p.appointment?.startTime)}
+                      </td>
+                      <td className="px-3 py-3 text-right font-semibold text-gray-900">
+                        {formatMoney(p.amount)}
+                      </td>
+                      <td className="px-3 py-3 text-right text-gray-800">
+                        {formatMoney(pp)}
+                      </td>
+                      <td className="px-3 py-3 text-right text-amber-900 font-medium">
+                        {formatMoney(ins)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-1">
+                          {p.healthInsurance?.name && (
+                            <span className="text-xs text-gray-600">{p.healthInsurance.name}</span>
+                          )}
+                          <span
+                            className={`inline-flex w-fit px-2 py-0.5 rounded-lg text-xs font-medium border ${badge.className}`}
+                          >
+                            {badge.label}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-gray-600 whitespace-nowrap">
+                        {METHOD_LABELS[p.method] ?? p.method}
+                      </td>
+                      {canManageStatus && (
+                        <td className="px-3 py-3 text-right">
+                          <div className="flex flex-wrap justify-end gap-1">
+                            {p.status === 'PENDING' && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={actionId === p.id}
+                                  onClick={() => handlePatchStatus(p.id, 'PAID')}
+                                  className="px-2 py-1 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  Cobrado
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={actionId === p.id}
+                                  onClick={() => handlePatchStatus(p.id, 'CANCELED')}
+                                  className="px-2 py-1 rounded-lg text-xs font-medium border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                                >
+                                  Anular
+                                </button>
+                              </>
+                            )}
+                            {p.insuranceBillingStatus === 'PENDING' && (
+                              <button
+                                type="button"
+                                disabled={actionId === p.id}
+                                onClick={() => handlePatchBilling(p.id, 'INVOICED')}
+                                className="px-2 py-1 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50"
+                              >
+                                Facturado
+                              </button>
+                            )}
+                            {p.insuranceBillingStatus === 'INVOICED' && (
+                              <button
+                                type="button"
+                                disabled={actionId === p.id}
+                                onClick={() => handlePatchBilling(p.id, 'COLLECTED')}
+                                className="px-2 py-1 rounded-lg text-xs font-medium bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50"
+                              >
+                                Cobrado OS
+                              </button>
+                            )}
+                            {p.status === 'PAID' &&
+                              p.source === 'INSURANCE' &&
+                              !p.insuranceBillingStatus && (
+                                <button
+                                  type="button"
+                                  disabled={actionId === p.id}
+                                  onClick={() => handlePatchStatus(p.id, 'CANCELED')}
+                                  className="px-2 py-1 rounded-lg text-xs font-medium border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                  Anular
+                                </button>
+                              )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

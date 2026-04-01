@@ -105,7 +105,7 @@ function LoginPageInner() {
               {...register('email')}
               type="email"
               autoComplete="email"
-              className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 sm:text-sm"
+              className="ensigna-input !py-3 !px-4 sm:text-sm"
               placeholder="Email"
             />
             {errors.email && (
@@ -120,7 +120,7 @@ function LoginPageInner() {
               {...register('password')}
               type="password"
               autoComplete="current-password"
-              className="block w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 sm:text-sm"
+              className="ensigna-input !py-3 !px-4 sm:text-sm"
               placeholder="Contraseña"
             />
             {errors.password && (
@@ -134,7 +134,7 @@ function LoginPageInner() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full flex justify-center items-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full btn-ensigna-primary !py-3"
         >
           {isLoading ? 'Iniciando sesión…' : 'Iniciar sesión'}
         </button>
@@ -144,7 +144,7 @@ function LoginPageInner() {
             <div className="w-full border-t border-gray-200" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-white px-3 text-sm text-gray-500">
+            <span className="bg-[var(--ensigna-background)] px-3 text-sm text-[var(--ensigna-text-secondary)]">
               O continuá con
             </span>
           </div>
@@ -153,7 +153,7 @@ function LoginPageInner() {
         <button
           type="button"
           onClick={handleGoogleLogin}
-          className="w-full inline-flex justify-center items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+          className="w-full btn-ensigna-secondary !justify-center !text-sm"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
             <path

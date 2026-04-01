@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Loader2, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CARD' | 'OTHER';
-export type PaymentSource = 'PRIVATE' | 'INSURANCE';
+
+interface HealthInsuranceOption {
+  id: string;
+  name: string;
+  coveragePercent: number;
+}
 
 interface PatientOption {
   id: string;
@@ -32,10 +37,9 @@ const METHOD_OPTIONS: { value: PaymentMethod; label: string }[] = [
   { value: 'OTHER', label: 'Otro' },
 ];
 
-const SOURCE_OPTIONS: { value: PaymentSource; label: string; hint: string }[] = [
-  { value: 'PRIVATE', label: 'Particular', hint: 'Se marca como cobrado al instante' },
-  { value: 'INSURANCE', label: 'Obra social', hint: 'Queda pendiente hasta cobrar la liquidación' },
-];
+function roundMoney(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 export default function RegisterPaymentModal({
   open,
@@ -51,7 +55,11 @@ export default function RegisterPaymentModal({
   const [patientSearch, setPatientSearch] = useState('');
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<PaymentMethod>('CASH');
-  const [source, setSource] = useState<PaymentSource>('PRIVATE');
+  /** particular | copago con OS | liquidación 100% OS (legacy) */
+  const [billingKind, setBillingKind] = useState<'PRIVATE' | 'COPAY' | 'LEGACY_OS'>('PRIVATE');
+  const [healthInsuranceId, setHealthInsuranceId] = useState('');
+  const [insurances, setInsurances] = useState<HealthInsuranceOption[]>([]);
+  const [loadingInsurances, setLoadingInsurances] = useState(false);
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +68,8 @@ export default function RegisterPaymentModal({
     setPatientId(defaultPatientId ?? '');
     setAmount('');
     setMethod('CASH');
-    setSource('PRIVATE');
+    setBillingKind('PRIVATE');
+    setHealthInsuranceId('');
     setPatientSearch('');
     setError(null);
   }, [defaultPatientId]);
@@ -75,6 +84,35 @@ export default function RegisterPaymentModal({
       setPatientId(defaultPatientId);
     }
   }, [open, defaultPatientId]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoadingInsurances(true);
+    apiClient
+      .getHealthInsurances()
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        setInsurances(
+          list.map((row: { id: string; name: string; coveragePercent?: number }) => ({
+            id: row.id,
+            name: row.name,
+            coveragePercent:
+              typeof row.coveragePercent === 'number' ? row.coveragePercent : 0,
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setInsurances([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingInsurances(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open || !allowPatientChange) return;
@@ -102,27 +140,77 @@ export default function RegisterPaymentModal({
     };
   }, [open, allowPatientChange, patientSearch]);
 
+  const totalNum = useMemo(() => {
+    const n = parseFloat(amount.replace(',', '.'));
+    return Number.isFinite(n) ? n : NaN;
+  }, [amount]);
+
+  const selectedHi = insurances.find((h) => h.id === healthInsuranceId);
+
+  const breakdown = useMemo(() => {
+    if (!Number.isFinite(totalNum) || totalNum <= 0) {
+      return { patient: 0, insurance: 0 };
+    }
+    if (billingKind !== 'COPAY' || !selectedHi) {
+      if (billingKind === 'PRIVATE') {
+        return { patient: roundMoney(totalNum), insurance: 0 };
+      }
+      return { patient: 0, insurance: 0 };
+    }
+    const pct = Math.min(100, Math.max(0, selectedHi.coveragePercent));
+    let ins = roundMoney((totalNum * pct) / 100);
+    let pat = roundMoney(totalNum - ins);
+    if (ins < 0.005) {
+      ins = 0;
+      pat = totalNum;
+    }
+    return { patient: pat, insurance: ins };
+  }, [billingKind, selectedHi, totalNum]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const num = parseFloat(amount.replace(',', '.'));
     if (!patientId.trim()) {
       setError('Seleccioná un paciente.');
       return;
     }
-    if (!Number.isFinite(num) || num <= 0) {
+    if (!Number.isFinite(totalNum) || totalNum <= 0) {
       setError('Ingresá un monto válido mayor a 0.');
       return;
     }
+    if (billingKind === 'COPAY') {
+      if (!healthInsuranceId) {
+        setError('Seleccioná una obra social para el copago.');
+        return;
+      }
+    }
     setSubmitting(true);
     try {
-      await apiClient.createPayment({
-        patientId: patientId.trim(),
-        appointmentId: defaultAppointmentId ?? undefined,
-        amount: num,
-        method,
-        source,
-      });
+      if (billingKind === 'LEGACY_OS') {
+        await apiClient.createPayment({
+          patientId: patientId.trim(),
+          appointmentId: defaultAppointmentId ?? undefined,
+          amount: totalNum,
+          method,
+          source: 'INSURANCE',
+        });
+      } else if (billingKind === 'COPAY' && healthInsuranceId) {
+        await apiClient.createPayment({
+          patientId: patientId.trim(),
+          appointmentId: defaultAppointmentId ?? undefined,
+          amount: totalNum,
+          method,
+          healthInsuranceId,
+        });
+      } else {
+        await apiClient.createPayment({
+          patientId: patientId.trim(),
+          appointmentId: defaultAppointmentId ?? undefined,
+          amount: totalNum,
+          method,
+          source: 'PRIVATE',
+        });
+      }
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
@@ -149,7 +237,7 @@ export default function RegisterPaymentModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 min-h-[100dvh] bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 min-h-[100dvh] ensigna-modal-backdrop"
           onClick={() => !submitting && onClose()}
           aria-hidden
         />
@@ -157,7 +245,7 @@ export default function RegisterPaymentModal({
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
-          className="relative z-10 w-full max-w-md max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-xl flex flex-col"
+          className="relative z-10 w-full max-w-md max-h-[90vh] overflow-hidden ensigna-modal-panel flex flex-col rounded-[var(--ensigna-radius-lg)]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -223,7 +311,9 @@ export default function RegisterPaymentModal({
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Monto</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Monto total de la consulta
+              </label>
               <input
                 type="text"
                 inputMode="decimal"
@@ -234,6 +324,136 @@ export default function RegisterPaymentModal({
                 required
               />
             </div>
+
+            <div>
+              <span className="block text-sm font-medium text-gray-700 mb-2">Tipo de cobro</span>
+              <div className="space-y-2">
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                    billingKind === 'PRIVATE'
+                      ? 'border-amber-400 bg-amber-50/50'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="billingKind"
+                    checked={billingKind === 'PRIVATE'}
+                    onChange={() => {
+                      setBillingKind('PRIVATE');
+                      setHealthInsuranceId('');
+                    }}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium text-gray-900 block">Particular</span>
+                    <span className="text-xs text-gray-500">El paciente abona el total al momento.</span>
+                  </span>
+                </label>
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                    billingKind === 'COPAY'
+                      ? 'border-amber-400 bg-amber-50/50'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="billingKind"
+                    checked={billingKind === 'COPAY'}
+                    onChange={() => setBillingKind('COPAY')}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium text-gray-900 block">Obra social (copago)</span>
+                    <span className="text-xs text-gray-500">
+                      Según el % de cobertura configurado en la obra social.
+                    </span>
+                  </span>
+                </label>
+                <label
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                    billingKind === 'LEGACY_OS'
+                      ? 'border-amber-400 bg-amber-50/50'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="billingKind"
+                    checked={billingKind === 'LEGACY_OS'}
+                    onChange={() => {
+                      setBillingKind('LEGACY_OS');
+                      setHealthInsuranceId('');
+                    }}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium text-gray-900 block">
+                      Solo obra social (sin copago en caja)
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Liquidación tradicional: requiere obra social del paciente; queda pendiente hasta cobrar.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {billingKind === 'COPAY' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Obra social</label>
+                <select
+                  value={healthInsuranceId}
+                  onChange={(e) => setHealthInsuranceId(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm"
+                  disabled={loadingInsurances}
+                >
+                  <option value="">Seleccionar obra social…</option>
+                  {insurances.map((hi) => (
+                    <option key={hi.id} value={hi.id}>
+                      {hi.name}
+                      {hi.coveragePercent > 0 ? ` (${hi.coveragePercent}% cobertura)` : ''}
+                    </option>
+                  ))}
+                </select>
+                {loadingInsurances && (
+                  <p className="text-xs text-gray-500 mt-1">Cargando obras sociales…</p>
+                )}
+                {billingKind === 'COPAY' && selectedHi && Number.isFinite(totalNum) && totalNum > 0 && (
+                  <div className="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-sm space-y-1">
+                    <p className="font-semibold text-slate-800">Resumen</p>
+                    <p className="text-slate-700">
+                      Total:{' '}
+                      <span className="font-medium">
+                        {totalNum.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                      </span>
+                    </p>
+                    <p className="text-slate-700">
+                      Paciente paga:{' '}
+                      <span className="font-medium text-emerald-800">
+                        {breakdown.patient.toLocaleString('es-AR', {
+                          style: 'currency',
+                          currency: 'ARS',
+                        })}
+                      </span>
+                    </p>
+                    <p className="text-slate-700">
+                      Obra social:{' '}
+                      <span className="font-medium text-amber-800">
+                        {breakdown.insurance.toLocaleString('es-AR', {
+                          style: 'currency',
+                          currency: 'ARS',
+                        })}
+                      </span>
+                      {breakdown.insurance > 0 && (
+                        <span className="text-xs text-slate-500"> (pendiente de facturar/cobrar)</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Método</label>
@@ -248,35 +468,6 @@ export default function RegisterPaymentModal({
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <span className="block text-sm font-medium text-gray-700 mb-2">Tipo de cobro</span>
-              <div className="space-y-2">
-                {SOURCE_OPTIONS.map((o) => (
-                  <label
-                    key={o.value}
-                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                      source === o.value
-                        ? 'border-amber-400 bg-amber-50/50'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="source"
-                      value={o.value}
-                      checked={source === o.value}
-                      onChange={() => setSource(o.value)}
-                      className="mt-1"
-                    />
-                    <span>
-                      <span className="font-medium text-gray-900 block">{o.label}</span>
-                      <span className="text-xs text-gray-500">{o.hint}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
             </div>
 
             <div className="flex gap-2 pt-2">

@@ -177,6 +177,20 @@ export default function ConversationsSection() {
         if (!msg || typeof msg !== "object") return;
         const m = msg as Partial<MessageRow> & { conversationId?: string };
         if (!m.id || !m.createdAt || !m.content) return;
+        if (m.conversationId) {
+          setList((prev) =>
+            sortConversationsByActivity(
+              prev.map((conversation) =>
+                conversation.id === m.conversationId
+                  ? {
+                      ...conversation,
+                      updatedAt: String(m.createdAt),
+                    }
+                  : conversation,
+              ),
+            ),
+          );
+        }
         setDetail((prev) => {
           if (!prev || prev.id !== selectedId) return prev;
           const exists = prev.messages.some((x) => x.id === m.id);
